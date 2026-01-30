@@ -6,7 +6,7 @@ use crate::grid::grid::{GridBounds, GridRead, GridWrite};
 pub struct DenseGrid2D<T> {
 	pub width: usize,
 	pub height: usize,
-	cells: Vec<T>,
+	pub cells: Vec<T>,
 }
 
 impl<T> DenseGrid2D<T> {
