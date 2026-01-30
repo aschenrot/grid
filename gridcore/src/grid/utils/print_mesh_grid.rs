@@ -23,9 +23,9 @@ where
 					1..=12 => format!("{:02}", p.mesh_id.0), // walls
 					20 => "F.".to_string(),                  // floor
 					30 => "E.".to_string(),                  // empty
-					_ => "..".to_string(),
+					_ => ".".to_string(),
 				})
-				.unwrap_or("..".to_string());
+				.unwrap_or("?".to_string());
 
 			print!("{} ", id);
 		}
