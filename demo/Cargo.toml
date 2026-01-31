@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 glam = "0.31.0"
 gridcore = { path = "../gridcore" }
+rand = "0.9.2"

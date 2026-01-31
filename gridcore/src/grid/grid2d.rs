@@ -1,6 +1,8 @@
+use std::fmt;
 // src/grid/grid2d.rs
 use glam::IVec2;
 use std::fmt::Debug;
+use crate::{MeshId, Tile};
 
 /// Trait for logic cells: must define occupancy
 pub trait Occupancy: Copy + Default {
@@ -89,18 +91,17 @@ impl<L: Copy + Default> Grid2d<L> {
 		for y in 0..self.height {
 			for x in 0..self.width {
 				let cell = &self.cells[y * self.width + x];
-				print!("{}", f(cell));
+				print!("{} ", f(cell));
 			}
 			println!();
 		}
 	}
 
 	/// Generic print method for visual grid
-	pub fn print_visual<V, F>(&self, visual_grid: &Vec<Vec<V>>, mut f: F)
-	where F: FnMut(&V) -> char {
+	pub fn print_visual<V: std::fmt::Display>(&self, visual_grid: &[Vec<V>]) {
 		for row in visual_grid {
 			for v in row {
-				print!("{}", f(v));
+				print!("{} ", v); // no closure needed
 			}
 			println!();
 		}
@@ -172,6 +173,30 @@ impl<L: Occupancy> Grid2d<L> {
 
 		grid
 	}
+
+	pub fn mesh_tiles(&self) -> Vec<Vec<Tile<MeshId>>> {
+		let mut grid = vec![
+			vec![Tile {
+				mask: 0,
+				logic: false,
+				visual: MeshId::default(),
+			}; self.width + 1];
+			self.height + 1
+		];
+
+		for y in 0..=self.height {
+			for x in 0..=self.width {
+				let coord = IVec2::new(x as i32, y as i32);
+				let mask = self.corner_mask(coord);
+				let logic = mask != 0;
+				let visual = MeshId::from_mask(mask);
+
+				grid[y][x] = Tile { mask, logic, visual };
+			}
+		}
+
+		grid
+	}
 }
 
 
@@ -188,14 +213,3 @@ impl Occupancy for CellType {
 	}
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Default)]
-pub enum CornerType {
-	#[default]
-	Empty,   // 0000
-	Corner,  // 0001 | 0010 | 0100 | 1000
-	Edge,    // 1100 | 0101 | 0011 | 1010
-	T,       // 1110 | 0111 | 1011 | 1101
-	Diagonal,// 1001 | 0110
-	Full,    // 1111
-	Debug,
-}
