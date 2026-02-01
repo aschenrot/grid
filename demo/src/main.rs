@@ -2,10 +2,9 @@
     use gridcore::*;
 
     fn main() {
-        use CellType::{Wall as W, Empty as E};
-
-        const WIDTH: usize = 16;
-        const HEIGHT: usize = 16;
+        const DIMENSION: usize = 16;
+        const WIDTH: usize = DIMENSION;
+        const HEIGHT: usize = DIMENSION;
 
         let mut grid = Grid2d::<CellType>::new(WIDTH, HEIGHT);
 
@@ -16,6 +15,7 @@
 
         // 4️⃣ Print logic grid
         println!("Logic grid:");
+        // todo grid.print_logic(&grid);
 
         // 5️⃣ Generate mesh tiles (with automatic rotation)
         let mesh_grid = grid.mesh_tiles();
