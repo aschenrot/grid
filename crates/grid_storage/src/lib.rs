@@ -5,6 +5,12 @@ pub use grid_math::{
     ORTHOGONAL_NEIGHBORS_2D, coord_from_row_major_index, row_major_index, row_major_index_3d,
 };
 
+/// Read access for finite, zero-origin, rectangular 2D grids.
+///
+/// Coordinates accepted by this trait are local to the grid bounds:
+/// `0..size.width` and `0..size.height`. World-space or sparse containers with
+/// negative/offset coordinates should expose explicit accessors and
+/// [`GridBounds`] instead of pretending to be zero-origin dense storage.
 pub trait GridRead {
     type Cell;
 
@@ -16,11 +22,13 @@ pub trait GridRead {
     }
 }
 
+/// Write access for finite, zero-origin, rectangular 2D grids.
 pub trait GridWrite: GridRead {
     fn get_mut(&mut self, coord: GridCoord2) -> Option<&mut Self::Cell>;
     fn set(&mut self, coord: GridCoord2, value: Self::Cell) -> bool;
 }
 
+/// World-space 2D bounds for storage that can report an occupied extent.
 pub trait GridBounds {
     fn min(&self) -> GridCoord2;
     fn max_exclusive(&self) -> GridCoord2;
@@ -288,6 +296,10 @@ impl<T> SparseGrid2D<T> {
         self.cells.get(&coord)
     }
 
+    pub fn get_mut(&mut self, coord: GridCoord2) -> Option<&mut T> {
+        self.cells.get_mut(&coord)
+    }
+
     pub fn set(&mut self, coord: GridCoord2, value: T) -> Option<T> {
         self.cells.insert(coord, value)
     }
@@ -296,8 +308,67 @@ impl<T> SparseGrid2D<T> {
         self.cells.remove(&coord)
     }
 
+    pub fn contains(&self, coord: GridCoord2) -> bool {
+        self.cells.contains_key(&coord)
+    }
+
+    pub fn len(&self) -> usize {
+        self.cells.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.cells.is_empty()
+    }
+
+    pub fn clear(&mut self) {
+        self.cells.clear();
+    }
+
+    pub fn bounds_rect(&self) -> Option<GridRect> {
+        self.try_rect()
+    }
+
     pub fn iter_cells(&self) -> impl Iterator<Item = (GridCoord2, &T)> {
         self.cells.iter().map(|(coord, cell)| (*coord, cell))
+    }
+}
+
+impl<T> GridBounds for SparseGrid2D<T> {
+    fn min(&self) -> GridCoord2 {
+        let mut iter = self.cells.keys();
+        let Some(first) = iter.next() else {
+            return GridCoord2::ZERO;
+        };
+
+        iter.fold(*first, |min, coord| {
+            GridCoord2::new(min.x.min(coord.x), min.y.min(coord.y))
+        })
+    }
+
+    fn max_exclusive(&self) -> GridCoord2 {
+        let mut iter = self.cells.keys();
+        let Some(first) = iter.next() else {
+            return GridCoord2::ZERO;
+        };
+
+        let max_inclusive = iter.fold(*first, |max, coord| {
+            GridCoord2::new(max.x.max(coord.x), max.y.max(coord.y))
+        });
+
+        max_inclusive.offset(1, 1)
+    }
+
+    fn try_rect(&self) -> Option<GridRect> {
+        if self.is_empty() {
+            return None;
+        }
+
+        let min = self.min();
+        let max = self.max_exclusive();
+        let width = usize::try_from(max.x.checked_sub(min.x)?).ok()?;
+        let height = usize::try_from(max.y.checked_sub(min.y)?).ok()?;
+
+        Some(GridRect::new(min, GridSize2::new(width, height)))
     }
 }
 
@@ -317,8 +388,36 @@ impl<T> SparseGrid3D<T> {
         self.cells.get(&coord)
     }
 
+    pub fn get_mut(&mut self, coord: GridCoord3) -> Option<&mut T> {
+        self.cells.get_mut(&coord)
+    }
+
     pub fn set(&mut self, coord: GridCoord3, value: T) -> Option<T> {
         self.cells.insert(coord, value)
+    }
+
+    pub fn remove(&mut self, coord: GridCoord3) -> Option<T> {
+        self.cells.remove(&coord)
+    }
+
+    pub fn contains(&self, coord: GridCoord3) -> bool {
+        self.cells.contains_key(&coord)
+    }
+
+    pub fn len(&self) -> usize {
+        self.cells.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.cells.is_empty()
+    }
+
+    pub fn clear(&mut self) {
+        self.cells.clear();
+    }
+
+    pub fn iter_cells(&self) -> impl Iterator<Item = (GridCoord3, &T)> {
+        self.cells.iter().map(|(coord, cell)| (*coord, cell))
     }
 }
 
@@ -330,6 +429,15 @@ pub struct ChunkedGrid2D<T> {
 
 impl<T> ChunkedGrid2D<T> {
     pub fn new(chunk_size: GridSize2) -> Self {
+        assert!(
+            chunk_size.width > 0 && chunk_size.height > 0,
+            "chunk size must be non-zero"
+        );
+        assert!(
+            chunk_size.fits_i32_coords(),
+            "chunk dimensions must fit in i32 coordinates"
+        );
+
         Self {
             chunk_size,
             chunks: BTreeMap::new(),
@@ -343,6 +451,185 @@ impl<T> ChunkedGrid2D<T> {
     pub fn chunks(&self) -> &BTreeMap<GridCoord2, DenseGrid2D<T>> {
         &self.chunks
     }
+
+    pub fn len_chunks(&self) -> usize {
+        self.chunks.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.chunks.is_empty()
+    }
+
+    pub fn clear(&mut self) {
+        self.chunks.clear();
+    }
+
+    pub fn chunk_coord_for(&self, coord: GridCoord2) -> GridCoord2 {
+        GridCoord2::new(
+            div_floor(coord.x, usize_to_i32(self.chunk_size.width)),
+            div_floor(coord.y, usize_to_i32(self.chunk_size.height)),
+        )
+    }
+
+    pub fn local_coord_for(&self, coord: GridCoord2) -> GridCoord2 {
+        let chunk_coord = self.chunk_coord_for(coord);
+        GridCoord2::new(
+            coord.x - chunk_coord.x * usize_to_i32(self.chunk_size.width),
+            coord.y - chunk_coord.y * usize_to_i32(self.chunk_size.height),
+        )
+    }
+
+    pub fn get(&self, coord: GridCoord2) -> Option<&T> {
+        let chunk_coord = self.chunk_coord_for(coord);
+        let local_coord = self.local_coord_for(coord);
+
+        self.chunks
+            .get(&chunk_coord)
+            .and_then(|chunk| chunk.get(local_coord))
+    }
+
+    pub fn get_mut(&mut self, coord: GridCoord2) -> Option<&mut T> {
+        let chunk_coord = self.chunk_coord_for(coord);
+        let local_coord = self.local_coord_for(coord);
+
+        self.chunks
+            .get_mut(&chunk_coord)
+            .and_then(|chunk| chunk.get_mut(local_coord))
+    }
+
+    pub fn contains_chunk(&self, chunk_coord: GridCoord2) -> bool {
+        self.chunks.contains_key(&chunk_coord)
+    }
+
+    pub fn remove_chunk(&mut self, chunk_coord: GridCoord2) -> Option<DenseGrid2D<T>> {
+        self.chunks.remove(&chunk_coord)
+    }
+
+    pub fn iter_chunks(&self) -> impl Iterator<Item = (GridCoord2, &DenseGrid2D<T>)> {
+        self.chunks.iter().map(|(coord, chunk)| (*coord, chunk))
+    }
+
+    pub fn iter_cells(&self) -> impl Iterator<Item = (GridCoord2, &T)> {
+        let chunk_size = self.chunk_size;
+        self.chunks.iter().flat_map(move |(chunk_coord, chunk)| {
+            chunk.iter_cells().map(move |(local_coord, cell)| {
+                (
+                    global_coord_from_chunk(*chunk_coord, local_coord, chunk_size),
+                    cell,
+                )
+            })
+        })
+    }
+}
+
+impl<T> GridBounds for ChunkedGrid2D<T> {
+    fn min(&self) -> GridCoord2 {
+        let mut iter = self.chunks.keys();
+        let Some(first) = iter.next() else {
+            return GridCoord2::ZERO;
+        };
+
+        iter.fold(chunk_origin(*first, self.chunk_size), |min, chunk_coord| {
+            let origin = chunk_origin(*chunk_coord, self.chunk_size);
+            GridCoord2::new(min.x.min(origin.x), min.y.min(origin.y))
+        })
+    }
+
+    fn max_exclusive(&self) -> GridCoord2 {
+        let mut iter = self.chunks.keys();
+        let Some(first) = iter.next() else {
+            return GridCoord2::ZERO;
+        };
+
+        iter.fold(
+            chunk_max_exclusive(*first, self.chunk_size),
+            |max, chunk_coord| {
+                let chunk_max = chunk_max_exclusive(*chunk_coord, self.chunk_size);
+                GridCoord2::new(max.x.max(chunk_max.x), max.y.max(chunk_max.y))
+            },
+        )
+    }
+
+    fn try_rect(&self) -> Option<GridRect> {
+        if self.is_empty() {
+            return None;
+        }
+
+        let min = self.min();
+        let max = self.max_exclusive();
+        let width = usize::try_from(max.x.checked_sub(min.x)?).ok()?;
+        let height = usize::try_from(max.y.checked_sub(min.y)?).ok()?;
+
+        Some(GridRect::new(min, GridSize2::new(width, height)))
+    }
+}
+
+impl<T: Clone> ChunkedGrid2D<T> {
+    pub fn ensure_chunk(&mut self, chunk_coord: GridCoord2, default: T) -> &mut DenseGrid2D<T> {
+        self.chunks
+            .entry(chunk_coord)
+            .or_insert_with(|| DenseGrid2D::filled(self.chunk_size, default))
+    }
+
+    pub fn set(&mut self, coord: GridCoord2, value: T, default: T) -> Option<T> {
+        let chunk_coord = self.chunk_coord_for(coord);
+        let local_coord = self.local_coord_for(coord);
+        let chunk = self.ensure_chunk(chunk_coord, default);
+        let old = chunk.get(local_coord).cloned();
+        chunk.set(local_coord, value);
+        old
+    }
+}
+
+fn div_floor(value: i32, divisor: i32) -> i32 {
+    debug_assert!(divisor > 0);
+    let quotient = value / divisor;
+    let remainder = value % divisor;
+    if remainder != 0 && ((remainder < 0) != (divisor < 0)) {
+        quotient - 1
+    } else {
+        quotient
+    }
+}
+
+fn usize_to_i32(value: usize) -> i32 {
+    i32::try_from(value).expect("dimension exceeds i32::MAX")
+}
+
+fn global_coord_from_chunk(
+    chunk_coord: GridCoord2,
+    local_coord: GridCoord2,
+    chunk_size: GridSize2,
+) -> GridCoord2 {
+    let origin = chunk_origin(chunk_coord, chunk_size);
+    GridCoord2::new(origin.x + local_coord.x, origin.y + local_coord.y)
+}
+
+fn chunk_origin(chunk_coord: GridCoord2, chunk_size: GridSize2) -> GridCoord2 {
+    GridCoord2::new(
+        chunk_coord
+            .x
+            .checked_mul(usize_to_i32(chunk_size.width))
+            .expect("chunk origin x overflows i32"),
+        chunk_coord
+            .y
+            .checked_mul(usize_to_i32(chunk_size.height))
+            .expect("chunk origin y overflows i32"),
+    )
+}
+
+fn chunk_max_exclusive(chunk_coord: GridCoord2, chunk_size: GridSize2) -> GridCoord2 {
+    let origin = chunk_origin(chunk_coord, chunk_size);
+    GridCoord2::new(
+        origin
+            .x
+            .checked_add(usize_to_i32(chunk_size.width))
+            .expect("chunk max x overflows i32"),
+        origin
+            .y
+            .checked_add(usize_to_i32(chunk_size.height))
+            .expect("chunk max y overflows i32"),
+    )
 }
 
 #[cfg(test)]
@@ -405,5 +692,67 @@ mod tests {
         assert_eq!(grid.index_of(GridCoord3::new(0, 0, 1)), Some(4));
         assert_eq!(grid.get(GridCoord3::new(0, 0, 1)), Some(&5));
         assert_eq!(grid.get(GridCoord3::new(-1, 0, 0)), None);
+    }
+
+    #[test]
+    fn sparse_grid_2d_tracks_bounds_and_traits() {
+        let mut grid = SparseGrid2D::new();
+
+        assert!(grid.is_empty());
+        assert_eq!(grid.set(GridCoord2::new(-2, 3), "a"), None);
+        assert_eq!(grid.set(GridCoord2::new(4, -1), "b"), None);
+
+        assert_eq!(grid.len(), 2);
+        assert_eq!(grid.get(GridCoord2::new(-2, 3)), Some(&"a"));
+        assert_eq!(grid.min(), GridCoord2::new(-2, -1));
+        assert_eq!(grid.max_exclusive(), GridCoord2::new(5, 4));
+        assert_eq!(
+            grid.bounds_rect(),
+            Some(GridRect::new(GridCoord2::new(-2, -1), GridSize2::new(7, 5)))
+        );
+        assert_eq!(grid.remove(GridCoord2::new(-2, 3)), Some("a"));
+        grid.clear();
+        assert_eq!(grid.bounds_rect(), None);
+    }
+
+    #[test]
+    fn sparse_grid_3d_sets_removes_and_iterates() {
+        let mut grid = SparseGrid3D::new();
+
+        grid.set(GridCoord3::new(1, 2, 3), 7);
+        assert!(grid.contains(GridCoord3::new(1, 2, 3)));
+        assert_eq!(grid.get_mut(GridCoord3::new(1, 2, 3)), Some(&mut 7));
+        assert_eq!(
+            grid.iter_cells().collect::<Vec<_>>(),
+            vec![(GridCoord3::new(1, 2, 3), &7)]
+        );
+        assert_eq!(grid.remove(GridCoord3::new(1, 2, 3)), Some(7));
+        assert!(grid.is_empty());
+    }
+
+    #[test]
+    fn chunked_grid_maps_negative_coordinates_with_floor_division() {
+        let mut grid = ChunkedGrid2D::new(GridSize2::new(4, 4));
+
+        assert_eq!(
+            grid.chunk_coord_for(GridCoord2::new(-1, -1)),
+            GridCoord2::new(-1, -1)
+        );
+        assert_eq!(
+            grid.local_coord_for(GridCoord2::new(-1, -1)),
+            GridCoord2::new(3, 3)
+        );
+
+        assert_eq!(grid.set(GridCoord2::new(-1, -1), 9, 0), Some(0));
+        assert_eq!(grid.get(GridCoord2::new(-1, -1)), Some(&9));
+        assert!(grid.contains_chunk(GridCoord2::new(-1, -1)));
+        assert_eq!(grid.len_chunks(), 1);
+        assert_eq!(grid.min(), GridCoord2::new(-4, -4));
+        assert_eq!(grid.max_exclusive(), GridCoord2::new(0, 0));
+        assert_eq!(
+            grid.iter_cells()
+                .find(|(coord, _)| *coord == GridCoord2::new(-1, -1)),
+            Some((GridCoord2::new(-1, -1), &9))
+        );
     }
 }
