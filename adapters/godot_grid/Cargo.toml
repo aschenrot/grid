@@ -4,9 +4,6 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
-[lib]
-crate-type = ["rlib", "cdylib"]
-
 [dependencies]
 godot.workspace = true
 grid_math.workspace = true

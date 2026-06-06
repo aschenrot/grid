@@ -1,8 +1,7 @@
 use std::fmt;
 
-pub use grid_math::{
-    GridCoord2, GridSize2, affected_corners_for_logic_cell, logic_cells_for_corner,
-};
+pub use grid_math::GridCoord2;
+use grid_math::{GridSize2, affected_corners_for_logic_cell, logic_cells_for_corner};
 pub use grid_storage::{DenseGrid2D, GridRead};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
@@ -64,17 +63,103 @@ impl From<TileMask4> for u8 {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct DualGridCorner {
-    coord: GridCoord2,
-}
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct LogicCellCoord(GridCoord2);
 
-impl DualGridCorner {
+impl LogicCellCoord {
+    pub const ZERO: Self = Self(GridCoord2::ZERO);
+
     pub const fn new(coord: GridCoord2) -> Self {
-        Self { coord }
+        Self(coord)
+    }
+
+    pub const fn from_xy(x: i32, y: i32) -> Self {
+        Self(GridCoord2::new(x, y))
     }
 
     pub const fn coord(self) -> GridCoord2 {
+        self.0
+    }
+
+    pub const fn x(self) -> i32 {
+        self.0.x
+    }
+
+    pub const fn y(self) -> i32 {
+        self.0.y
+    }
+
+    pub const fn offset(self, dx: i32, dy: i32) -> Self {
+        Self(self.0.offset(dx, dy))
+    }
+}
+
+impl From<GridCoord2> for LogicCellCoord {
+    fn from(coord: GridCoord2) -> Self {
+        Self::new(coord)
+    }
+}
+
+impl From<LogicCellCoord> for GridCoord2 {
+    fn from(coord: LogicCellCoord) -> Self {
+        coord.coord()
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct VisualCornerCoord(GridCoord2);
+
+impl VisualCornerCoord {
+    pub const ZERO: Self = Self(GridCoord2::ZERO);
+
+    pub const fn new(coord: GridCoord2) -> Self {
+        Self(coord)
+    }
+
+    pub const fn from_xy(x: i32, y: i32) -> Self {
+        Self(GridCoord2::new(x, y))
+    }
+
+    pub const fn coord(self) -> GridCoord2 {
+        self.0
+    }
+
+    pub const fn x(self) -> i32 {
+        self.0.x
+    }
+
+    pub const fn y(self) -> i32 {
+        self.0.y
+    }
+
+    pub const fn offset(self, dx: i32, dy: i32) -> Self {
+        Self(self.0.offset(dx, dy))
+    }
+}
+
+impl From<GridCoord2> for VisualCornerCoord {
+    fn from(coord: GridCoord2) -> Self {
+        Self::new(coord)
+    }
+}
+
+impl From<VisualCornerCoord> for GridCoord2 {
+    fn from(coord: VisualCornerCoord) -> Self {
+        coord.coord()
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct DualGridCorner {
+    coord: VisualCornerCoord,
+}
+
+impl DualGridCorner {
+    pub const fn from_visual_coord(coord: VisualCornerCoord) -> Self {
+        Self { coord }
+    }
+
+    pub const fn visual_coord(self) -> VisualCornerCoord {
         self.coord
     }
 }
@@ -206,8 +291,8 @@ impl VisualTile {
         self.corner
     }
 
-    pub const fn coord(self) -> GridCoord2 {
-        self.corner.coord()
+    pub const fn visual_corner_coord(self) -> VisualCornerCoord {
+        self.corner.visual_coord()
     }
 
     pub const fn descriptor(self) -> VisualTileDescriptor {
@@ -222,7 +307,7 @@ impl VisualTile {
 impl Default for VisualTile {
     fn default() -> Self {
         Self::new(
-            DualGridCorner::new(GridCoord2::ZERO),
+            DualGridCorner::from_visual_coord(VisualCornerCoord::ZERO),
             VisualTileDescriptor::default(),
         )
     }
@@ -273,33 +358,44 @@ impl<R: TileRule> DualGridResolver<R> {
         form_visual_tiles_with_rule(grid, &self.rule)
     }
 
-    pub fn resolve_cell<G>(&self, grid: &G, cell: GridCoord2) -> [VisualTile; 4]
+    pub fn resolve_logic_cell<G>(&self, grid: &G, cell: LogicCellCoord) -> [VisualTile; 4]
     where
         G: GridRead,
         G::Cell: Occupancy,
     {
-        affected_corners_for_cell(cell).map(|corner_coord| {
-            let corner = DualGridCorner::new(corner_coord);
+        affected_visual_corners_for_logic_cell(cell).map(|corner_coord| {
+            let corner = DualGridCorner::from_visual_coord(corner_coord);
             let mask = dual_grid_mask_at(grid, corner_coord);
             self.rule.visual_tile_for_mask(corner, mask)
         })
     }
 }
 
-pub fn dual_grid_mask_at<G>(grid: &G, corner: GridCoord2) -> TileMask4
+pub fn dual_grid_mask_at<G>(grid: &G, corner: VisualCornerCoord) -> TileMask4
 where
     G: GridRead,
     G::Cell: Occupancy,
 {
     let mut mask = 0u8;
 
-    for (bit, coord) in logic_cells_for_corner(corner).into_iter().enumerate() {
-        if grid.get(coord).is_some_and(Occupancy::is_occupied) {
+    for (bit, coord) in logic_cells_for_visual_corner(corner)
+        .into_iter()
+        .enumerate()
+    {
+        if grid.get(coord.coord()).is_some_and(Occupancy::is_occupied) {
             mask |= 1 << bit;
         }
     }
 
     TileMask4::from_bits_truncate(mask)
+}
+
+pub fn dual_grid_mask_for_block_origin<G>(grid: &G, origin: LogicCellCoord) -> TileMask4
+where
+    G: GridRead,
+    G::Cell: Occupancy,
+{
+    dual_grid_mask_at(grid, VisualCornerCoord::new(origin.coord().offset(1, 1)))
 }
 
 pub fn form_visual_tiles<G>(grid: &G) -> DenseGrid2D<VisualTile>
@@ -320,14 +416,19 @@ where
     let visual_size = GridSize2::new(logic_size.width + 1, logic_size.height + 1);
 
     DenseGrid2D::from_fn(visual_size, |coord| {
-        let corner = DualGridCorner::new(coord);
-        let mask = dual_grid_mask_at(grid, coord);
+        let visual_corner = VisualCornerCoord::new(coord);
+        let corner = DualGridCorner::from_visual_coord(visual_corner);
+        let mask = dual_grid_mask_at(grid, visual_corner);
         rule.visual_tile_for_mask(corner, mask)
     })
 }
 
-pub fn affected_corners_for_cell(cell: GridCoord2) -> [GridCoord2; 4] {
-    affected_corners_for_logic_cell(cell)
+pub fn affected_visual_corners_for_logic_cell(cell: LogicCellCoord) -> [VisualCornerCoord; 4] {
+    affected_corners_for_logic_cell(cell.coord()).map(VisualCornerCoord::new)
+}
+
+pub fn logic_cells_for_visual_corner(corner: VisualCornerCoord) -> [LogicCellCoord; 4] {
+    logic_cells_for_corner(corner.coord()).map(LogicCellCoord::new)
 }
 
 pub fn visual_tile_kind(mask: TileMask4) -> VisualTileKind {
@@ -436,7 +537,7 @@ mod tests {
         );
 
         assert_eq!(
-            dual_grid_mask_at(&grid, GridCoord2::new(1, 1)).bits(),
+            dual_grid_mask_at(&grid, VisualCornerCoord::from_xy(1, 1)).bits(),
             0b1111
         );
     }
@@ -454,38 +555,71 @@ mod tests {
         let grid = grid_from_walls(1, 1, &[GridCoord2::new(0, 0)]);
 
         assert_eq!(
-            dual_grid_mask_at(&grid, GridCoord2::new(0, 0)).bits(),
+            dual_grid_mask_at(&grid, VisualCornerCoord::from_xy(0, 0)).bits(),
             0b1000
         );
         assert_eq!(
-            dual_grid_mask_at(&grid, GridCoord2::new(1, 0)).bits(),
+            dual_grid_mask_at(&grid, VisualCornerCoord::from_xy(1, 0)).bits(),
             0b0100
         );
         assert_eq!(
-            dual_grid_mask_at(&grid, GridCoord2::new(0, 1)).bits(),
+            dual_grid_mask_at(&grid, VisualCornerCoord::from_xy(0, 1)).bits(),
             0b0010
         );
         assert_eq!(
-            dual_grid_mask_at(&grid, GridCoord2::new(1, 1)).bits(),
+            dual_grid_mask_at(&grid, VisualCornerCoord::from_xy(1, 1)).bits(),
             0b0001
         );
         assert_eq!(
-            dual_grid_mask_at(&grid, GridCoord2::new(-1, -1)).bits(),
+            dual_grid_mask_at(&grid, VisualCornerCoord::from_xy(-1, -1)).bits(),
             0b0000
         );
     }
 
     #[test]
     fn changed_logic_cell_affects_exactly_four_visual_corners() {
-        let affected = affected_corners_for_cell(GridCoord2::new(3, 5));
+        let affected = affected_visual_corners_for_logic_cell(LogicCellCoord::from_xy(3, 5));
 
         assert_eq!(
             affected,
             [
-                GridCoord2::new(3, 5),
-                GridCoord2::new(4, 5),
-                GridCoord2::new(3, 6),
-                GridCoord2::new(4, 6),
+                VisualCornerCoord::from_xy(3, 5),
+                VisualCornerCoord::from_xy(4, 5),
+                VisualCornerCoord::from_xy(3, 6),
+                VisualCornerCoord::from_xy(4, 6),
+            ]
+        );
+    }
+
+    #[test]
+    fn typed_coords_make_corner_and_block_origin_masks_explicit() {
+        let grid = grid_from_walls(2, 2, &[GridCoord2::new(0, 0)]);
+
+        assert_eq!(
+            dual_grid_mask_at(&grid, VisualCornerCoord::from_xy(0, 0)).bits(),
+            0b1000
+        );
+        assert_eq!(
+            dual_grid_mask_at(&grid, VisualCornerCoord::from_xy(1, 1)).bits(),
+            0b0001
+        );
+        assert_eq!(
+            dual_grid_mask_for_block_origin(&grid, LogicCellCoord::from_xy(0, 0)).bits(),
+            0b0001
+        );
+    }
+
+    #[test]
+    fn typed_dirty_cell_invalidation_returns_visual_corner_coords() {
+        let affected = affected_visual_corners_for_logic_cell(LogicCellCoord::from_xy(3, 5));
+
+        assert_eq!(
+            affected,
+            [
+                VisualCornerCoord::from_xy(3, 5),
+                VisualCornerCoord::from_xy(4, 5),
+                VisualCornerCoord::from_xy(3, 6),
+                VisualCornerCoord::from_xy(4, 6),
             ]
         );
     }
@@ -494,7 +628,7 @@ mod tests {
     fn resolver_returns_descriptors_for_dirty_cell_corners() {
         let grid = grid_from_walls(2, 2, &[GridCoord2::new(1, 1)]);
         let resolver = DualGridResolver::default();
-        let resolved = resolver.resolve_cell(&grid, GridCoord2::new(1, 1));
+        let resolved = resolver.resolve_logic_cell(&grid, LogicCellCoord::from_xy(1, 1));
         let masks: Vec<_> = resolved
             .into_iter()
             .map(|tile| tile.descriptor().mask().bits())

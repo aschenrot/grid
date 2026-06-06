@@ -1,9 +1,9 @@
 use godot::prelude::Vector2i;
-use grid_math::GridCoord2;
 use grid_storage::{DenseGrid2D, GridRead};
 use tile_topology::{
-    DualGridResolver, Occupancy, VisualTile, VisualTileDescriptor, VisualTileKind,
-    affected_corners_for_cell, form_visual_tiles,
+    DualGridResolver, LogicCellCoord, Occupancy, VisualCornerCoord, VisualTile,
+    VisualTileDescriptor, VisualTileKind, affected_visual_corners_for_logic_cell,
+    form_visual_tiles,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,9 +35,9 @@ impl GodotVisualTileData {
         let descriptor = tile.descriptor();
 
         Self {
-            corner: coord_to_vector2i(tile.coord()),
+            corner: visual_corner_to_vector2i(tile.visual_corner_coord()),
             asset_key: asset_key_for_descriptor(descriptor).key,
-            rotation_degrees_cw: descriptor.rotation().degrees_cw() as i32,
+            rotation_degrees_cw: i32::from(descriptor.rotation().degrees_cw()),
             mask: descriptor.mask().bits(),
             is_empty: descriptor.kind() == VisualTileKind::Empty,
         }
@@ -71,24 +71,28 @@ impl GodotGridAdapter {
         self.map_visual_grid(&visual_grid)
     }
 
-    pub fn map_dirty_cell<G>(&self, grid: &G, cell: GridCoord2) -> [GodotVisualTileData; 4]
+    pub fn map_dirty_logic_cell<G>(
+        &self,
+        grid: &G,
+        cell: LogicCellCoord,
+    ) -> [GodotVisualTileData; 4]
     where
         G: GridRead,
         G::Cell: Occupancy,
     {
         let resolver = DualGridResolver::default();
         resolver
-            .resolve_cell(grid, cell)
+            .resolve_logic_cell(grid, cell)
             .map(GodotVisualTileData::from_visual_tile)
     }
 
-    pub fn affected_corners(&self, cell: GridCoord2) -> [Vector2i; 4] {
-        affected_corners_for_cell(cell).map(coord_to_vector2i)
+    pub fn affected_visual_corners(&self, cell: LogicCellCoord) -> [Vector2i; 4] {
+        affected_visual_corners_for_logic_cell(cell).map(visual_corner_to_vector2i)
     }
 }
 
-pub fn coord_to_vector2i(coord: GridCoord2) -> Vector2i {
-    Vector2i::new(coord.x, coord.y)
+pub fn visual_corner_to_vector2i(coord: VisualCornerCoord) -> Vector2i {
+    Vector2i::new(coord.x(), coord.y())
 }
 
 pub fn asset_key_for_descriptor(descriptor: VisualTileDescriptor) -> GodotTileAssetKey {
@@ -109,6 +113,7 @@ pub fn asset_key_for_descriptor(descriptor: VisualTileDescriptor) -> GodotTileAs
 #[cfg(test)]
 mod tests {
     use super::*;
+    use grid_math::GridCoord2;
     use grid_storage::DenseGrid2D;
     use tile_topology::{CellType, VisualTileDescriptor};
 
@@ -160,7 +165,7 @@ mod tests {
         let adapter = GodotGridAdapter;
 
         assert_eq!(
-            adapter.affected_corners(GridCoord2::new(2, 3)),
+            adapter.affected_visual_corners(LogicCellCoord::from_xy(2, 3)),
             [
                 Vector2i::new(2, 3),
                 Vector2i::new(3, 3),
