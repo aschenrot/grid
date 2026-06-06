@@ -31,3 +31,19 @@ use grid_prelude::*;
 let mut grid = DenseGrid2D::new(16, 16, CellType::Empty);
 fill_with_noise(&mut grid, NoiseFillSettings::new(0.1, 0.8, 42));
 ```
+
+Run the CLI demo with deterministic or random seeds:
+
+```text
+cargo run -p cli_dual_grid_demo
+cargo run -p cli_dual_grid_demo -- --seed 123
+cargo run -p cli_dual_grid_demo -- --seed random
+cargo run -p cli_dual_grid_demo -- --random-seed
+```
+
+Build the Godot adapter explicitly when you need the GDExtension dynamic
+library:
+
+```text
+cargo build -p godot_grid
+```

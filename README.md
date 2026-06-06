@@ -35,6 +35,8 @@ Run the CLI dual-grid demo:
 
 ```text
 cargo run -p cli_dual_grid_demo
+cargo run -p cli_dual_grid_demo -- --seed 123
+cargo run -p cli_dual_grid_demo -- --random-seed
 ```
 
 Run the normal core validation surface:
@@ -47,4 +49,5 @@ Run the Godot adapter check explicitly:
 
 ```text
 cargo test -p godot_grid
+cargo build -p godot_grid
 ```

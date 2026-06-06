@@ -58,8 +58,30 @@ metadata and must not alter the core descriptor.
 ## Godot Scope
 
 `adapters/godot_grid` may depend on `godot` and expose Godot-facing value data.
-It must not depend on Bevy, Runenwerk, ECS crates, renderer systems, or
-procedural generation unless a future adapter-specific demo explicitly needs it.
+It builds as both an Rust `rlib` for tests and a Godot-loadable `cdylib` with
+the default godot-rust GDExtension entry symbol:
+
+```text
+gdext_rust_init
+```
+
+The adapter exposes:
+
+- `GodotVisualTileResource`, a Godot `Resource` with `corner`, `asset_key`,
+  `rotation_degrees_cw`, `mask`, and `is_empty` properties.
+- `GodotGridTopologyMapper`, a Godot `RefCounted` class that maps masks and
+  changed logic cells to Godot-facing values/resources.
+- `GodotGridAdapter`, a pure Rust value mapper used by tests and non-Godot
+  consumers.
+
+The Godot-facing classes call into `tile_topology` for descriptor and
+invalidation truth. They must not duplicate mask classification, dirty-cell
+invalidation, Bevy, Runenwerk, ECS crates, renderer systems, or procedural
+generation unless a future adapter-specific demo explicitly needs it.
+
+A downstream Godot project should provide its own `.gdextension` file pointing
+at the compiled library for its platform/build layout, using `entry_symbol =
+"gdext_rust_init"`.
 
 ## Bevy and Runenwerk
 
