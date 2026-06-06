@@ -23,7 +23,8 @@ pull procedural dependencies by accident.
 From the in-repository `gridcore` prototype:
 
 - `Grid2d` storage moved to `grid_storage::DenseGrid2D`.
-- `corner_mask()` moved to `tile_topology::dual_grid_mask_at()`.
+- `corner_mask()` moved to `tile_topology::dual_grid_mask_at()` with
+  `VisualCornerCoord`.
 - `mesh_tiles()` moved to `tile_topology::form_visual_tiles()`.
 - `MeshType` became `tile_topology::VisualTileKind`.
 - `MeshId` became `tile_topology::VisualTileDescriptor`.

@@ -27,6 +27,12 @@ ECS, renderers, asset systems, `fastnoise-lite`, `rand`, or required `glam`.
 The grid uses integer coordinates with origin `(0, 0)` at the top-left logic
 cell. Positive `x` moves right. Positive `y` moves down.
 
+`tile_topology` uses semantic coordinate wrappers at the public topology
+boundary:
+
+- `LogicCellCoord` names a logic cell.
+- `VisualCornerCoord` names a visual corner/intersection.
+
 A logic grid with dimensions `width x height` has a dual visual corner grid with
 dimensions `(width + 1) x (height + 1)`. A visual corner coordinate `(cx, cy)`
 samples these four logic cells:
@@ -56,3 +62,16 @@ Changing logic cell `(x, y)` affects exactly four visual corners:
 
 Adapters and downstream consumers use this list to update visual data. They must
 not recompute a different invalidation contract.
+
+## Block-Origin Convenience
+
+Some prototypes name a visual sample by the top-left logic cell of a `2 x 2`
+block:
+
+```text
+(x, y)      (x + 1, y)
+(x, y + 1)  (x + 1, y + 1)
+```
+
+That is available as a convenience helper, but it is not the core coordinate
+contract. Block origin `(x, y)` maps to visual corner `(x + 1, y + 1)`.

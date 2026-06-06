@@ -7,7 +7,7 @@ Those APIs are migrated into the split workspace:
 | --- | --- |
 | `gridcore::Grid2d` | `grid_storage::DenseGrid2D` |
 | `gridcore::CellType` | `tile_topology::CellType` |
-| `Grid2d::corner_mask()` | `tile_topology::dual_grid_mask_at()` |
+| `Grid2d::corner_mask()` | `tile_topology::dual_grid_mask_at(VisualCornerCoord)` |
 | `Grid2d::mesh_tiles()` | `tile_topology::form_visual_tiles()` |
 | `MeshType` | `VisualTileKind` |
 | `MeshId` | `VisualTileDescriptor` |

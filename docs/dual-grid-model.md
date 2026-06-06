@@ -4,6 +4,11 @@ Dual-grid topology maps a `width x height` logic grid into a `(width + 1) x
 (height + 1)` visual corner grid. Each visual corner stores a 4-bit occupancy
 mask and a neutral visual descriptor.
 
+The topology API distinguishes the two coordinate spaces:
+
+- `LogicCellCoord` names a logic cell.
+- `VisualCornerCoord` names an intersection/corner in the visual grid.
+
 ## Mask Bits
 
 For visual corner `(cx, cy)`, bits are assigned in clockwise reading order from
@@ -17,6 +22,34 @@ the top-left sampled logic cell:
 | 3 | southeast | `(cx, cy)` |
 
 Any sampled logic coordinate outside the logic grid is empty.
+
+## Corner Coordinates vs Block Origins
+
+For a tiny `2 x 2` logic grid:
+
+```text
+A B
+C D
+```
+
+Current corner semantics make visual corner `(1, 1)` sample all four cells:
+
+```text
+A B
+C D
+```
+
+With only `A` filled, these current visual-corner masks are produced:
+
+```text
+1000 0100 0000
+0010 0001 0000
+0000 0000 0000
+```
+
+The alternate block-origin helper names the same `2 x 2` sample by its top-left
+logic cell. Block origin `(0, 0)` is equivalent to visual corner `(1, 1)`, so it
+returns mask `0001` when only `A` is filled.
 
 ## Classification
 

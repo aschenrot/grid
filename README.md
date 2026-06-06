@@ -21,10 +21,12 @@ Generation, demos, and adapters are workspace members but are outside
 use grid_prelude::*;
 
 let mut grid = DenseGrid2D::new(4, 4, CellType::Empty);
-grid.set(GridCoord2::new(1, 1), CellType::Wall);
+grid.set(LogicCellCoord::from_xy(1, 1).coord(), CellType::Wall);
 
 let visual = form_visual_tiles(&grid);
-let tile = visual.get(GridCoord2::new(1, 1)).unwrap();
+let tile = visual
+    .get(VisualCornerCoord::from_xy(1, 1).coord())
+    .unwrap();
 
 assert_eq!(tile.descriptor().mask().bits(), 0b1000);
 ```
@@ -38,7 +40,7 @@ cargo run -p cli_dual_grid_demo
 Run the normal core validation surface:
 
 ```text
-cargo test --workspace --default-members
+cargo test
 ```
 
 Run the Godot adapter check explicitly:

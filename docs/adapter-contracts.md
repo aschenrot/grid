@@ -8,11 +8,13 @@ do not own topology truth.
 Adapters may read:
 
 - `grid_math` coordinates and sizes
+- `tile_topology::LogicCellCoord`
+- `tile_topology::VisualCornerCoord`
 - `grid_storage` grid accessors
 - `tile_topology::VisualTileDescriptor`
 - `tile_topology::VisualTileKind`
 - `tile_topology::VisualTileRotation`
-- `tile_topology::affected_corners_for_cell()`
+- `tile_topology::affected_visual_corners_for_logic_cell()`
 - `tile_topology::form_visual_tiles()`
 
 Adapters must not duplicate mask computation, visual tile classification, or

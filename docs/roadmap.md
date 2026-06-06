@@ -265,7 +265,7 @@ VisualTileVariant
 VisualTileDescriptor
 DualGridResolver
 TileRule
-affected_corners_for_cell()
+affected_visual_corners_for_logic_cell()
 dual_grid_mask_at()
 form_visual_tiles()
 ```
@@ -326,7 +326,7 @@ Validation:
 
 ```text
 cargo test -p grid_generation
-cargo test --workspace --default-members
+cargo test
 ```
 
 ## Phase 6: Prelude, Demo, and Public Docs
@@ -350,7 +350,7 @@ Acceptance:
 Validation:
 
 ```text
-cargo test --workspace --default-members
+cargo test
 cargo run -p cli_dual_grid_demo
 ```
 
@@ -377,7 +377,7 @@ Acceptance:
 Validation:
 
 ```text
-cargo test --workspace --default-members
+cargo test
 ```
 
 ## Phase 8: Optional Godot and Bevy Adapters
@@ -400,7 +400,7 @@ Acceptance:
 Validation:
 
 ```text
-cargo test --workspace --default-members
+cargo test
 cargo test -p godot_grid
 cargo test -p bevy_grid
 ```
@@ -430,7 +430,7 @@ Acceptance:
 Validation in this repo:
 
 ```text
-cargo test --workspace --default-members
+cargo test
 ```
 
 Validation in Runenwerk:

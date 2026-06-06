@@ -127,7 +127,7 @@ Execution plan:
    - Add deterministic seed tests.
    - Run:
      - `cargo test -p grid_generation`
-     - `cargo test --workspace --default-members`
+     - `cargo test`
 
 8. Complete Phase 6: prelude and CLI demo.
    - Create `crates/grid_prelude`.
@@ -136,7 +136,7 @@ Execution plan:
    - Update `README.md` with normal usage.
    - Ensure default workspace members include only core crates.
    - Run:
-     - `cargo test --workspace --default-members`
+     - `cargo test`
      - `cargo run -p cli_dual_grid_demo`
 
 9. Complete Godot adapter contract and implementation.
@@ -149,13 +149,13 @@ Execution plan:
    - Add tests or compile checks that validate mapping behavior without needing
      a full Godot editor run if possible.
    - Run:
-     - `cargo test --workspace --default-members`
+     - `cargo test`
      - `cargo test -p godot_grid`
 
 10. Final validation and cleanup.
     - Run the smallest relevant checks after each phase.
     - At the end, run:
-      - `cargo test --workspace --default-members`
+      - `cargo test`
       - `cargo run -p cli_dual_grid_demo`
       - `cargo test -p godot_grid`
     - Run `cargo fmt` if Rust files changed.

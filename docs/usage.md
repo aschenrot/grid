@@ -12,12 +12,14 @@ Create a logic grid, mark cells as walls, then form visual descriptors:
 use grid_prelude::*;
 
 let mut grid = DenseGrid2D::new(4, 4, CellType::Empty);
-grid.set(GridCoord2::new(1, 1), CellType::Wall);
+grid.set(LogicCellCoord::from_xy(1, 1).coord(), CellType::Wall);
 
 let visual = form_visual_tiles(&grid);
-let descriptor = visual.get(GridCoord2::new(1, 1)).unwrap();
+let tile = visual
+    .get(VisualCornerCoord::from_xy(1, 1).coord())
+    .unwrap();
 
-assert_eq!(descriptor.mask().bits(), 0b1000);
+assert_eq!(tile.descriptor().mask().bits(), 0b1000);
 ```
 
 Use `grid_generation` only when procedural helpers are needed:
