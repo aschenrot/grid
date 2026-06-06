@@ -27,7 +27,7 @@ fn main() {
 fn print_logic_grid(grid: &DenseGrid2D<CellType>) {
     for y in 0..grid.height() {
         for x in 0..grid.width() {
-            let coord = GridCoord2::new(x as i32, y as i32);
+            let coord = coord_from_indices(x, y);
             let symbol = match grid.get(coord) {
                 Some(CellType::Wall) => '#',
                 _ => '.',
@@ -41,7 +41,7 @@ fn print_logic_grid(grid: &DenseGrid2D<CellType>) {
 fn print_visual_grid(grid: &DenseGrid2D<VisualTile>) {
     for y in 0..grid.height() {
         for x in 0..grid.width() {
-            let coord = GridCoord2::new(x as i32, y as i32);
+            let coord = coord_from_indices(x, y);
             let tile = grid.get(coord).copied().unwrap_or_default();
             print!("{tile} ");
         }
@@ -51,4 +51,11 @@ fn print_visual_grid(grid: &DenseGrid2D<VisualTile>) {
 
 fn print_visual_legend() {
     println!("Legend: . empty, C corner, - edge, D diagonal, T t-junction, F full, ? debug");
+}
+
+fn coord_from_indices(x: usize, y: usize) -> GridCoord2 {
+    GridCoord2::new(
+        i32::try_from(x).expect("demo grid width exceeds i32::MAX"),
+        i32::try_from(y).expect("demo grid height exceeds i32::MAX"),
+    )
 }

@@ -25,14 +25,18 @@ pub trait GridBounds {
     fn min(&self) -> GridCoord2;
     fn max_exclusive(&self) -> GridCoord2;
 
-    fn rect(&self) -> GridRect {
+    fn try_rect(&self) -> Option<GridRect> {
         let min = self.min();
         let max = self.max_exclusive();
+        let width = usize::try_from(max.x.checked_sub(min.x)?).ok()?;
+        let height = usize::try_from(max.y.checked_sub(min.y)?).ok()?;
 
-        GridRect::new(
-            min,
-            GridSize2::new((max.x - min.x) as usize, (max.y - min.y) as usize),
-        )
+        Some(GridRect::new(min, GridSize2::new(width, height)))
+    }
+
+    fn rect(&self) -> GridRect {
+        self.try_rect()
+            .expect("grid bounds max_exclusive must be greater than or equal to min")
     }
 
     fn max_inclusive(&self) -> Option<GridCoord2> {
@@ -57,6 +61,11 @@ impl<T: Clone> DenseGrid2D<T> {
     }
 
     pub fn filled(size: GridSize2, default: T) -> Self {
+        assert!(
+            size.fits_i32_coords(),
+            "DenseGrid2D dimensions must fit in i32 coordinates"
+        );
+
         Self {
             size,
             cells: vec![default; size.area()],
@@ -69,6 +78,11 @@ impl<T> DenseGrid2D<T> {
     where
         F: FnMut(GridCoord2) -> T,
     {
+        assert!(
+            size.fits_i32_coords(),
+            "DenseGrid2D dimensions must fit in i32 coordinates"
+        );
+
         let cells = GridRect::from_size(size).iter().map(&mut f).collect();
 
         Self { size, cells }
@@ -200,7 +214,10 @@ impl<T> GridBounds for DenseGrid2D<T> {
     }
 
     fn max_exclusive(&self) -> GridCoord2 {
-        GridCoord2::new(self.width() as i32, self.height() as i32)
+        GridCoord2::new(
+            i32::try_from(self.width()).expect("grid width exceeds i32::MAX"),
+            i32::try_from(self.height()).expect("grid height exceeds i32::MAX"),
+        )
     }
 }
 
@@ -216,6 +233,11 @@ impl<T: Clone> DenseGrid3D<T> {
     }
 
     pub fn filled(size: GridSize3, default: T) -> Self {
+        assert!(
+            size.fits_i32_coords(),
+            "DenseGrid3D dimensions must fit in i32 coordinates"
+        );
+
         Self {
             size,
             cells: vec![default; size.volume()],

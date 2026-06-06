@@ -44,7 +44,7 @@ impl SeededGridGenerator {
 
 pub fn fill_with_noise(grid: &mut DenseGrid2D<CellType>, settings: NoiseFillSettings) {
     let mut noise = FastNoiseLite::new();
-    noise.set_seed(Some(settings.seed as i32));
+    noise.set_seed(Some(i32::from_ne_bytes(settings.seed.to_ne_bytes())));
     noise.set_noise_type(Some(NoiseType::OpenSimplex2));
     noise.set_fractal_type(Some(FractalType::FBm));
     noise.set_fractal_octaves(Some(4));
@@ -70,7 +70,7 @@ pub fn cellular_automata_step(grid: &DenseGrid2D<CellType>) -> DenseGrid2D<CellT
             .map(|offset| coord + *offset)
             .filter(|neighbor| {
                 grid.get(*neighbor)
-                    .map_or(true, tile_topology::Occupancy::is_occupied)
+                    .is_none_or(tile_topology::Occupancy::is_occupied)
             })
             .count();
 
@@ -93,10 +93,14 @@ pub fn test_pattern(width: usize, height: usize) -> DenseGrid2D<CellType> {
 }
 
 fn is_border(coord: GridCoord2, width: usize, height: usize) -> bool {
-    coord.x == 0
-        || coord.y == 0
-        || coord.x == width.saturating_sub(1) as i32
-        || coord.y == height.saturating_sub(1) as i32
+    let Ok(x) = usize::try_from(coord.x) else {
+        return false;
+    };
+    let Ok(y) = usize::try_from(coord.y) else {
+        return false;
+    };
+
+    x == 0 || y == 0 || x == width.saturating_sub(1) || y == height.saturating_sub(1)
 }
 
 #[cfg(test)]

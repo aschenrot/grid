@@ -80,8 +80,16 @@ impl GridSize2 {
         Self { width, height }
     }
 
-    pub const fn area(self) -> usize {
-        self.width * self.height
+    pub const fn checked_area(self) -> Option<usize> {
+        self.width.checked_mul(self.height)
+    }
+
+    pub fn area(self) -> usize {
+        self.checked_area().expect("grid area overflows usize")
+    }
+
+    pub fn fits_i32_coords(self) -> bool {
+        i32::try_from(self.width).is_ok() && i32::try_from(self.height).is_ok()
     }
 
     pub const fn is_empty(self) -> bool {
@@ -111,8 +119,21 @@ impl GridSize3 {
         }
     }
 
-    pub const fn volume(self) -> usize {
-        self.width * self.height * self.depth
+    pub const fn checked_volume(self) -> Option<usize> {
+        match self.width.checked_mul(self.height) {
+            Some(area) => area.checked_mul(self.depth),
+            None => None,
+        }
+    }
+
+    pub fn volume(self) -> usize {
+        self.checked_volume().expect("grid volume overflows usize")
+    }
+
+    pub fn fits_i32_coords(self) -> bool {
+        i32::try_from(self.width).is_ok()
+            && i32::try_from(self.height).is_ok()
+            && i32::try_from(self.depth).is_ok()
     }
 
     pub const fn is_empty(self) -> bool {
@@ -150,8 +171,14 @@ impl GridRect {
 
     pub fn max_exclusive(self) -> GridCoord2 {
         GridCoord2::new(
-            self.origin.x + self.size.width as i32,
-            self.origin.y + self.size.height as i32,
+            self.origin
+                .x
+                .checked_add(usize_to_i32(self.size.width))
+                .expect("grid rect max x overflows i32"),
+            self.origin
+                .y
+                .checked_add(usize_to_i32(self.size.height))
+                .expect("grid rect max y overflows i32"),
         )
     }
 
@@ -327,13 +354,14 @@ pub fn row_major_index(coord: GridCoord2, size: GridSize2) -> Option<usize> {
 }
 
 pub fn coord_from_row_major_index(index: usize, size: GridSize2) -> Option<GridCoord2> {
-    if size.width == 0 || index >= size.area() {
+    let area = size.checked_area()?;
+    if size.width == 0 || index >= area {
         return None;
     }
 
     Some(GridCoord2::new(
-        (index % size.width) as i32,
-        (index / size.width) as i32,
+        i32::try_from(index % size.width).ok()?,
+        i32::try_from(index / size.width).ok()?,
     ))
 }
 
@@ -359,6 +387,10 @@ pub fn logic_cells_for_corner(corner: GridCoord2) -> [GridCoord2; 4] {
 
 pub fn affected_corners_for_logic_cell(cell: GridCoord2) -> [GridCoord2; 4] {
     AFFECTED_CORNER_OFFSETS.map(|offset| cell + offset)
+}
+
+fn usize_to_i32(value: usize) -> i32 {
+    i32::try_from(value).expect("grid coordinate dimension exceeds i32::MAX")
 }
 
 #[cfg(feature = "glam")]
@@ -466,5 +498,13 @@ mod tests {
         assert_eq!(row_major_index_3d(GridCoord3::new(2, 1, 0), size), Some(5));
         assert_eq!(row_major_index_3d(GridCoord3::new(0, 0, 1), size), Some(6));
         assert_eq!(row_major_index_3d(GridCoord3::new(-1, 0, 0), size), None);
+    }
+
+    #[test]
+    fn checked_size_helpers_reject_overflowing_dimensions() {
+        assert_eq!(GridSize2::new(usize::MAX, 2).checked_area(), None);
+        assert_eq!(GridSize3::new(usize::MAX, 2, 2).checked_volume(), None);
+        let too_wide = usize::try_from(i32::MAX).unwrap() + 1;
+        assert!(!GridSize2::new(too_wide, 1).fits_i32_coords());
     }
 }
