@@ -1,0 +1,12 @@
+[package]
+name = "grid_generation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+fastnoise-lite.workspace = true
+grid_math.workspace = true
+grid_storage.workspace = true
+rand.workspace = true
+tile_topology.workspace = true

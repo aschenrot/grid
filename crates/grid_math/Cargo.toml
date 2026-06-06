@@ -1,0 +1,12 @@
+[package]
+name = "grid_math"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = []
+glam = ["dep:glam"]
+
+[dependencies]
+glam = { workspace = true, optional = true }
