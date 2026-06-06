@@ -1,10 +1,15 @@
-use godot::prelude::Vector2i;
+use godot::prelude::*;
 use grid_storage::{DenseGrid2D, GridRead};
 use tile_topology::{
-    DualGridResolver, LogicCellCoord, Occupancy, VisualCornerCoord, VisualTile,
-    VisualTileDescriptor, VisualTileKind, affected_visual_corners_for_logic_cell,
-    form_visual_tiles,
+    DualGridResolver, LogicCellCoord, Occupancy, TileMask4, VisualCornerCoord, VisualTile,
+    VisualTileDescriptor, VisualTileKind, VisualTileRotation,
+    affected_visual_corners_for_logic_cell, form_visual_tiles,
 };
+
+struct GodotGridExtension;
+
+#[gdextension]
+unsafe impl ExtensionLibrary for GodotGridExtension {}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GodotTileAssetKey {
@@ -32,15 +37,95 @@ pub struct GodotVisualTileData {
 
 impl GodotVisualTileData {
     pub fn from_visual_tile(tile: VisualTile) -> Self {
-        let descriptor = tile.descriptor();
+        Self::from_descriptor(tile.visual_corner_coord(), tile.descriptor())
+    }
 
+    pub fn from_descriptor(corner: VisualCornerCoord, descriptor: VisualTileDescriptor) -> Self {
         Self {
-            corner: visual_corner_to_vector2i(tile.visual_corner_coord()),
+            corner: visual_corner_to_vector2i(corner),
             asset_key: asset_key_for_descriptor(descriptor).key,
             rotation_degrees_cw: i32::from(descriptor.rotation().degrees_cw()),
             mask: descriptor.mask().bits(),
             is_empty: descriptor.kind() == VisualTileKind::Empty,
         }
+    }
+}
+
+#[derive(GodotClass)]
+#[class(init, base=Resource)]
+pub struct GodotVisualTileResource {
+    base: Base<Resource>,
+    #[var]
+    pub corner: Vector2i,
+    #[var]
+    pub asset_key: GString,
+    #[var]
+    pub rotation_degrees_cw: i64,
+    #[var]
+    pub mask: i64,
+    #[var]
+    pub is_empty: bool,
+}
+
+#[godot_api]
+impl GodotVisualTileResource {
+    #[func]
+    pub fn setup(
+        &mut self,
+        corner: Vector2i,
+        asset_key: GString,
+        rotation_degrees_cw: i64,
+        mask: i64,
+        is_empty: bool,
+    ) {
+        self.corner = corner;
+        self.asset_key = asset_key;
+        self.rotation_degrees_cw = rotation_degrees_cw;
+        self.mask = mask;
+        self.is_empty = is_empty;
+    }
+}
+
+#[derive(GodotClass)]
+#[class(init, base=RefCounted)]
+pub struct GodotGridTopologyMapper {
+    base: Base<RefCounted>,
+}
+
+#[godot_api]
+impl GodotGridTopologyMapper {
+    #[func]
+    pub fn asset_key_for_mask(&self, mask: i64) -> GString {
+        GString::from(asset_key_for_descriptor(descriptor_for_godot_mask(mask)).as_str())
+    }
+
+    #[func]
+    pub fn kind_for_mask(&self, mask: i64) -> GString {
+        GString::from(kind_name(descriptor_for_godot_mask(mask).kind()))
+    }
+
+    #[func]
+    pub fn rotation_degrees_for_mask(&self, mask: i64) -> i64 {
+        i64::from(descriptor_for_godot_mask(mask).rotation().degrees_cw())
+    }
+
+    #[func]
+    pub fn visual_tile_for_mask(&self, corner: Vector2i, mask: i64) -> Gd<GodotVisualTileResource> {
+        let corner = VisualCornerCoord::from_xy(corner.x, corner.y);
+        let descriptor = descriptor_for_godot_mask(mask);
+        resource_from_data(GodotVisualTileData::from_descriptor(corner, descriptor))
+    }
+
+    #[func]
+    pub fn affected_visual_corners_for_cell(&self, cell: Vector2i) -> Array<Vector2i> {
+        let mut corners = Array::<Vector2i>::new();
+        for corner in
+            affected_visual_corners_for_logic_cell(LogicCellCoord::from_xy(cell.x, cell.y))
+        {
+            corners.push(visual_corner_to_vector2i(corner));
+        }
+
+        corners
     }
 }
 
@@ -110,6 +195,45 @@ pub fn asset_key_for_descriptor(descriptor: VisualTileDescriptor) -> GodotTileAs
     GodotTileAssetKey::new(key)
 }
 
+fn descriptor_for_godot_mask(mask: i64) -> VisualTileDescriptor {
+    match u8::try_from(mask).ok().and_then(TileMask4::from_bits) {
+        Some(mask) => VisualTileDescriptor::from_mask(mask),
+        None => VisualTileDescriptor::new(
+            TileMask4::from_bits_truncate(mask as u8),
+            VisualTileKind::Debug,
+            VisualTileRotation::ZERO,
+        ),
+    }
+}
+
+fn kind_name(kind: VisualTileKind) -> &'static str {
+    match kind {
+        VisualTileKind::Empty => "empty",
+        VisualTileKind::Corner => "corner",
+        VisualTileKind::Edge => "edge",
+        VisualTileKind::T => "t",
+        VisualTileKind::Diagonal => "diagonal",
+        VisualTileKind::Full => "full",
+        VisualTileKind::Debug => "debug",
+    }
+}
+
+fn resource_from_data(data: GodotVisualTileData) -> Gd<GodotVisualTileResource> {
+    let mut resource = GodotVisualTileResource::new_gd();
+    {
+        let mut tile = resource.bind_mut();
+        tile.setup(
+            data.corner,
+            GString::from(data.asset_key.as_str()),
+            i64::from(data.rotation_degrees_cw),
+            i64::from(data.mask),
+            data.is_empty,
+        );
+    }
+
+    resource
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -142,6 +266,14 @@ mod tests {
             let descriptor = VisualTileDescriptor::from_mask_bits(mask);
             assert_eq!(asset_key_for_descriptor(descriptor).as_str(), key);
         }
+    }
+
+    #[test]
+    fn godot_mask_conversion_uses_debug_for_invalid_masks() {
+        let descriptor = descriptor_for_godot_mask(99);
+
+        assert_eq!(descriptor.kind(), VisualTileKind::Debug);
+        assert_eq!(asset_key_for_descriptor(descriptor).as_str(), "debug");
     }
 
     #[test]
