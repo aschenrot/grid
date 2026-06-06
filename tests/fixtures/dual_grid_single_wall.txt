@@ -1,0 +1,15 @@
+[logic]
+#
+
+[visual_masks]
+1000 0100
+0010 0001
+
+[affected_cell]
+0 0
+
+[affected_corners]
+0 0
+1 0
+0 1
+1 1

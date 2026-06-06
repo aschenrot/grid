@@ -4,6 +4,7 @@ pub use grid_math::GridCoord2;
 use grid_math::{GridSize2, affected_corners_for_logic_cell, logic_cells_for_corner};
 pub use grid_storage::{DenseGrid2D, GridRead};
 
+/// Minimal built-in cell type used by examples and demos.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub enum CellType {
     #[default]
@@ -11,6 +12,7 @@ pub enum CellType {
     Wall,
 }
 
+/// Reports whether a logic-grid cell participates in topology masks.
 pub trait Occupancy {
     fn is_occupied(&self) -> bool;
 }
@@ -27,6 +29,14 @@ impl Occupancy for bool {
     }
 }
 
+/// Four-bit dual-grid occupancy mask for one visual corner.
+///
+/// For visual corner `(cx, cy)`, bit order is:
+///
+/// - bit 0: logic cell `(cx - 1, cy - 1)`
+/// - bit 1: logic cell `(cx, cy - 1)`
+/// - bit 2: logic cell `(cx - 1, cy)`
+/// - bit 3: logic cell `(cx, cy)`
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash)]
 pub struct TileMask4(u8);
 
@@ -63,6 +73,7 @@ impl From<TileMask4> for u8 {
     }
 }
 
+/// Coordinate in the logic-cell grid.
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct LogicCellCoord(GridCoord2);
 
@@ -106,6 +117,9 @@ impl From<LogicCellCoord> for GridCoord2 {
     }
 }
 
+/// Coordinate in the visual corner grid.
+///
+/// A visual corner `(cx, cy)` samples the four logic cells around that corner.
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct VisualCornerCoord(GridCoord2);
 
@@ -149,6 +163,7 @@ impl From<VisualCornerCoord> for GridCoord2 {
     }
 }
 
+/// One visual-grid corner with explicit coordinate semantics.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct DualGridCorner {
     coord: VisualCornerCoord,
@@ -164,6 +179,7 @@ impl DualGridCorner {
     }
 }
 
+/// Neutral visual topology class for a 4-bit mask.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
 pub enum VisualTileKind {
     #[default]
@@ -193,6 +209,7 @@ impl fmt::Display for VisualTileKind {
     }
 }
 
+/// Clockwise rotation for a neutral visual tile descriptor.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
 pub struct VisualTileRotation {
     degrees_cw: u16,
@@ -215,6 +232,10 @@ impl VisualTileRotation {
     }
 }
 
+/// Neutral classification of a visual corner.
+///
+/// Engine adapters map this descriptor to assets/resources. It deliberately
+/// does not contain mesh ids, transforms, nodes, handles, or ECS data.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct VisualTileDescriptor {
     mask: TileMask4,
@@ -276,6 +297,7 @@ impl fmt::Display for VisualTileDescriptor {
     }
 }
 
+/// Visual-grid tile data for one visual corner.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct VisualTile {
     corner: DualGridCorner,
@@ -319,10 +341,12 @@ impl fmt::Display for VisualTile {
     }
 }
 
+/// Policy hook for converting a mask into a visual tile.
 pub trait TileRule {
     fn visual_tile_for_mask(&self, corner: DualGridCorner, mask: TileMask4) -> VisualTile;
 }
 
+/// Standard mask-to-kind and mask-to-rotation rule.
 #[derive(Debug, Copy, Clone, Default)]
 pub struct StandardTileRule;
 
@@ -332,6 +356,7 @@ impl TileRule for StandardTileRule {
     }
 }
 
+/// Resolver that computes visual tiles from an occupancy grid.
 #[derive(Debug, Copy, Clone)]
 pub struct DualGridResolver<R = StandardTileRule> {
     rule: R,
@@ -371,6 +396,7 @@ impl<R: TileRule> DualGridResolver<R> {
     }
 }
 
+/// Computes the 4-bit mask at a visual corner.
 pub fn dual_grid_mask_at<G>(grid: &G, corner: VisualCornerCoord) -> TileMask4
 where
     G: GridRead,
@@ -390,6 +416,11 @@ where
     TileMask4::from_bits_truncate(mask)
 }
 
+/// Computes a mask from a 2x2 logic-cell block origin.
+///
+/// This is a compatibility helper for prototype code that names the sample by
+/// its top-left logic cell. `origin` maps to visual corner `(origin.x + 1,
+/// origin.y + 1)`.
 pub fn dual_grid_mask_for_block_origin<G>(grid: &G, origin: LogicCellCoord) -> TileMask4
 where
     G: GridRead,
@@ -398,6 +429,7 @@ where
     dual_grid_mask_at(grid, VisualCornerCoord::new(origin.coord().offset(1, 1)))
 }
 
+/// Forms a `(width + 1) x (height + 1)` visual grid from a logic grid.
 pub fn form_visual_tiles<G>(grid: &G) -> DenseGrid2D<VisualTile>
 where
     G: GridRead,
@@ -423,10 +455,12 @@ where
     })
 }
 
+/// Returns exactly the four visual corners affected by one changed logic cell.
 pub fn affected_visual_corners_for_logic_cell(cell: LogicCellCoord) -> [VisualCornerCoord; 4] {
     affected_corners_for_logic_cell(cell.coord()).map(VisualCornerCoord::new)
 }
 
+/// Returns the four logic cells sampled by one visual corner in mask bit order.
 pub fn logic_cells_for_visual_corner(corner: VisualCornerCoord) -> [LogicCellCoord; 4] {
     logic_cells_for_corner(corner.coord()).map(LogicCellCoord::new)
 }
@@ -481,12 +515,66 @@ pub fn visual_tile_rotation(mask: TileMask4, kind: VisualTileKind) -> VisualTile
 mod tests {
     use super::*;
 
+    const SINGLE_WALL_FIXTURE: &str =
+        include_str!("../../../tests/fixtures/dual_grid_single_wall.txt");
+
     fn grid_from_walls(width: usize, height: usize, walls: &[GridCoord2]) -> DenseGrid2D<CellType> {
         let mut grid = DenseGrid2D::new(width, height, CellType::Empty);
         for &wall in walls {
             assert!(grid.set(wall, CellType::Wall));
         }
         grid
+    }
+
+    fn fixture_section<'a>(fixture: &'a str, section: &str) -> Vec<&'a str> {
+        let heading = format!("[{section}]");
+        let mut in_section = false;
+        let mut lines = Vec::new();
+
+        for line in fixture.lines().map(str::trim) {
+            if line.starts_with('[') && line.ends_with(']') {
+                in_section = line == heading;
+                continue;
+            }
+
+            if in_section && !line.is_empty() {
+                lines.push(line);
+            }
+        }
+
+        lines
+    }
+
+    fn grid_from_logic_fixture(lines: &[&str]) -> DenseGrid2D<CellType> {
+        let height = lines.len();
+        let width = lines.first().map_or(0, |line| line.chars().count());
+
+        DenseGrid2D::from_fn(GridSize2::new(width, height), |coord| {
+            let y = usize::try_from(coord.y).expect("fixture y must be non-negative");
+            let x = usize::try_from(coord.x).expect("fixture x must be non-negative");
+            match lines[y].as_bytes()[x] {
+                b'#' => CellType::Wall,
+                b'.' => CellType::Empty,
+                other => panic!("unsupported fixture logic cell byte {other}"),
+            }
+        })
+    }
+
+    fn coord_from_fixture_line(line: &str) -> GridCoord2 {
+        let mut parts = line.split_whitespace();
+        let x = parts
+            .next()
+            .expect("fixture coord x")
+            .parse()
+            .expect("fixture coord x must be i32");
+        let y = parts
+            .next()
+            .expect("fixture coord y")
+            .parse()
+            .expect("fixture coord y must be i32");
+        assert!(parts.next().is_none(), "fixture coord has extra values");
+
+        GridCoord2::new(x, y)
     }
 
     #[test]
@@ -635,5 +723,52 @@ mod tests {
             .collect();
 
         assert_eq!(masks, vec![0b1000, 0b0100, 0b0010, 0b0001]);
+    }
+
+    #[test]
+    fn fixture_single_wall_preserves_visual_corner_contract() {
+        let logic_lines = fixture_section(SINGLE_WALL_FIXTURE, "logic");
+        let grid = grid_from_logic_fixture(&logic_lines);
+        let visual = form_visual_tiles(&grid);
+
+        let expected_masks: Vec<Vec<u8>> = fixture_section(SINGLE_WALL_FIXTURE, "visual_masks")
+            .into_iter()
+            .map(|line| {
+                line.split_whitespace()
+                    .map(|bits| u8::from_str_radix(bits, 2).expect("fixture mask must be binary"))
+                    .collect()
+            })
+            .collect();
+
+        for (y, row) in expected_masks.iter().enumerate() {
+            for (x, expected) in row.iter().enumerate() {
+                let coord = GridCoord2::new(
+                    i32::try_from(x).expect("fixture x must fit i32"),
+                    i32::try_from(y).expect("fixture y must fit i32"),
+                );
+                let actual = visual
+                    .get(coord)
+                    .expect("fixture visual coord must exist")
+                    .descriptor()
+                    .mask()
+                    .bits();
+
+                assert_eq!(actual, *expected, "visual mask at {coord:?}");
+            }
+        }
+
+        let affected_cell = LogicCellCoord::new(coord_from_fixture_line(
+            fixture_section(SINGLE_WALL_FIXTURE, "affected_cell")[0],
+        ));
+        let affected: Vec<_> = affected_visual_corners_for_logic_cell(affected_cell)
+            .into_iter()
+            .map(VisualCornerCoord::coord)
+            .collect();
+        let expected_affected: Vec<_> = fixture_section(SINGLE_WALL_FIXTURE, "affected_corners")
+            .into_iter()
+            .map(coord_from_fixture_line)
+            .collect();
+
+        assert_eq!(affected, expected_affected);
     }
 }
