@@ -20,6 +20,7 @@ version = "0.1.0"
 dependencies = [
  "grid_generation",
  "grid_prelude",
+ "rand",
 ]
 
 [[package]]
