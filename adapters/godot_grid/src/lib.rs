@@ -1,8 +1,8 @@
 use godot::prelude::*;
-use grid_storage::{DenseGrid2D, GridRead};
+use grid_storage::{DenseGrid2D, GridRead, GridSize2};
 use tile_topology::{
-    DualGridResolver, LogicCellCoord, Occupancy, TileMask4, VisualCornerCoord, VisualTile,
-    VisualTileDescriptor, VisualTileKind, VisualTileRotation,
+    CellType, DualGridResolver, LogicCellCoord, Occupancy, TileMask4, VisualCornerCoord,
+    VisualTile, VisualTileDescriptor, VisualTileKind, VisualTileRotation,
     affected_visual_corners_for_logic_cell, form_visual_tiles,
 };
 
@@ -229,6 +229,22 @@ impl GodotGridTopologyMapper {
 
         corners
     }
+
+    #[func]
+    pub fn visual_tiles_for_logic_grid(
+        &self,
+        logic_grid: Array<Variant>,
+    ) -> Array<Gd<GodotVisualTileResource>> {
+        let grid = dense_cell_grid_from_godot(&logic_grid);
+        let adapter = GodotGridAdapter;
+        let mut resources = Array::<Gd<GodotVisualTileResource>>::new();
+
+        for tile in adapter.map_logic_grid(&grid) {
+            resources.push(&resource_from_data(tile));
+        }
+
+        resources
+    }
 }
 
 #[derive(Debug, Copy, Clone, Default)]
@@ -390,6 +406,45 @@ fn resource_from_data(data: GodotVisualTileData) -> Gd<GodotVisualTileResource> 
     }
 
     resource
+}
+
+fn dense_cell_grid_from_godot(logic_grid: &Array<Variant>) -> DenseGrid2D<CellType> {
+    let height = logic_grid.len();
+    let width = logic_grid
+        .iter_shared()
+        .filter_map(|row| row.try_to::<Array<Variant>>().ok())
+        .map(|row| row.len())
+        .max()
+        .unwrap_or(0);
+
+    DenseGrid2D::from_fn(GridSize2::new(width, height), |coord| {
+        logic_grid
+            .get(coord.y as usize)
+            .and_then(|row| row.try_to::<Array<Variant>>().ok())
+            .and_then(|row| row.get(coord.x as usize))
+            .map(cell_type_from_variant)
+            .unwrap_or(CellType::Empty)
+    })
+}
+
+fn cell_type_from_variant(value: Variant) -> CellType {
+    if let Ok(is_wall) = value.try_to::<bool>() {
+        return if is_wall {
+            CellType::Wall
+        } else {
+            CellType::Empty
+        };
+    }
+
+    if let Ok(occupied) = value.try_to::<i64>() {
+        return if occupied == 0 {
+            CellType::Empty
+        } else {
+            CellType::Wall
+        };
+    }
+
+    CellType::Empty
 }
 
 #[cfg(test)]
