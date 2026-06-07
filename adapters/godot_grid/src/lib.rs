@@ -26,6 +26,90 @@ impl GodotTileAssetKey {
     }
 }
 
+pub trait GodotTileAssetResolver {
+    fn asset_key_for_descriptor(&self, descriptor: VisualTileDescriptor) -> GodotTileAssetKey;
+}
+
+#[derive(Debug, Copy, Clone, Default)]
+pub struct DefaultGodotTileAssetResolver;
+
+impl GodotTileAssetResolver for DefaultGodotTileAssetResolver {
+    fn asset_key_for_descriptor(&self, descriptor: VisualTileDescriptor) -> GodotTileAssetKey {
+        default_asset_key_for_descriptor(descriptor)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GodotTileAssetMapping {
+    pub descriptor: VisualTileDescriptor,
+    pub asset_key: GodotTileAssetKey,
+}
+
+impl GodotTileAssetMapping {
+    pub fn new(descriptor: VisualTileDescriptor, asset_key: impl Into<String>) -> Self {
+        Self {
+            descriptor,
+            asset_key: GodotTileAssetKey::new(asset_key),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GodotTileAssetCatalog {
+    mappings: Vec<GodotTileAssetMapping>,
+}
+
+impl GodotTileAssetCatalog {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_mapping(
+        mut self,
+        descriptor: VisualTileDescriptor,
+        asset_key: impl Into<String>,
+    ) -> Self {
+        self.set_mapping(descriptor, asset_key);
+        self
+    }
+
+    pub fn set_mapping(&mut self, descriptor: VisualTileDescriptor, asset_key: impl Into<String>) {
+        let asset_key = GodotTileAssetKey::new(asset_key);
+        if let Some(mapping) = self
+            .mappings
+            .iter_mut()
+            .find(|mapping| mapping.descriptor == descriptor)
+        {
+            mapping.asset_key = asset_key;
+            return;
+        }
+
+        self.mappings.push(GodotTileAssetMapping {
+            descriptor,
+            asset_key,
+        });
+    }
+
+    pub fn mapped_asset_key(&self, descriptor: VisualTileDescriptor) -> Option<&GodotTileAssetKey> {
+        self.mappings
+            .iter()
+            .find(|mapping| mapping.descriptor == descriptor)
+            .map(|mapping| &mapping.asset_key)
+    }
+
+    pub fn mappings(&self) -> &[GodotTileAssetMapping] {
+        &self.mappings
+    }
+}
+
+impl GodotTileAssetResolver for GodotTileAssetCatalog {
+    fn asset_key_for_descriptor(&self, descriptor: VisualTileDescriptor) -> GodotTileAssetKey {
+        self.mapped_asset_key(descriptor)
+            .cloned()
+            .unwrap_or_else(|| default_asset_key_for_descriptor(descriptor))
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct GodotVisualTileData {
     pub corner: Vector2i,
@@ -40,10 +124,28 @@ impl GodotVisualTileData {
         Self::from_descriptor(tile.visual_corner_coord(), tile.descriptor())
     }
 
+    pub fn from_visual_tile_with_resolver<R>(tile: VisualTile, resolver: &R) -> Self
+    where
+        R: GodotTileAssetResolver,
+    {
+        Self::from_descriptor_with_resolver(tile.visual_corner_coord(), tile.descriptor(), resolver)
+    }
+
     pub fn from_descriptor(corner: VisualCornerCoord, descriptor: VisualTileDescriptor) -> Self {
+        Self::from_descriptor_with_resolver(corner, descriptor, &DefaultGodotTileAssetResolver)
+    }
+
+    pub fn from_descriptor_with_resolver<R>(
+        corner: VisualCornerCoord,
+        descriptor: VisualTileDescriptor,
+        resolver: &R,
+    ) -> Self
+    where
+        R: GodotTileAssetResolver,
+    {
         Self {
             corner: visual_corner_to_vector2i(corner),
-            asset_key: asset_key_for_descriptor(descriptor).key,
+            asset_key: resolver.asset_key_for_descriptor(descriptor).key,
             rotation_degrees_cw: i32::from(descriptor.rotation().degrees_cw()),
             mask: descriptor.mask().bits(),
             is_empty: descriptor.kind() == VisualTileKind::Empty,
@@ -137,6 +239,13 @@ impl GodotGridAdapter {
         GodotVisualTileData::from_visual_tile(tile)
     }
 
+    pub fn map_tile_with_resolver<R>(&self, tile: VisualTile, resolver: &R) -> GodotVisualTileData
+    where
+        R: GodotTileAssetResolver,
+    {
+        GodotVisualTileData::from_visual_tile_with_resolver(tile, resolver)
+    }
+
     pub fn map_visual_grid(
         &self,
         visual_grid: &DenseGrid2D<VisualTile>,
@@ -147,6 +256,20 @@ impl GodotGridAdapter {
             .collect()
     }
 
+    pub fn map_visual_grid_with_resolver<R>(
+        &self,
+        visual_grid: &DenseGrid2D<VisualTile>,
+        resolver: &R,
+    ) -> Vec<GodotVisualTileData>
+    where
+        R: GodotTileAssetResolver,
+    {
+        visual_grid
+            .iter_cells()
+            .map(|(_, tile)| self.map_tile_with_resolver(*tile, resolver))
+            .collect()
+    }
+
     pub fn map_logic_grid<G>(&self, grid: &G) -> Vec<GodotVisualTileData>
     where
         G: GridRead,
@@ -154,6 +277,20 @@ impl GodotGridAdapter {
     {
         let visual_grid = form_visual_tiles(grid);
         self.map_visual_grid(&visual_grid)
+    }
+
+    pub fn map_logic_grid_with_resolver<G, R>(
+        &self,
+        grid: &G,
+        resolver: &R,
+    ) -> Vec<GodotVisualTileData>
+    where
+        G: GridRead,
+        G::Cell: Occupancy,
+        R: GodotTileAssetResolver,
+    {
+        let visual_grid = form_visual_tiles(grid);
+        self.map_visual_grid_with_resolver(&visual_grid, resolver)
     }
 
     pub fn map_dirty_logic_cell<G>(
@@ -171,6 +308,23 @@ impl GodotGridAdapter {
             .map(GodotVisualTileData::from_visual_tile)
     }
 
+    pub fn map_dirty_logic_cell_with_resolver<G, R>(
+        &self,
+        grid: &G,
+        cell: LogicCellCoord,
+        resolver: &R,
+    ) -> [GodotVisualTileData; 4]
+    where
+        G: GridRead,
+        G::Cell: Occupancy,
+        R: GodotTileAssetResolver,
+    {
+        let resolver_core = DualGridResolver::default();
+        resolver_core
+            .resolve_logic_cell(grid, cell)
+            .map(|tile| GodotVisualTileData::from_visual_tile_with_resolver(tile, resolver))
+    }
+
     pub fn affected_visual_corners(&self, cell: LogicCellCoord) -> [Vector2i; 4] {
         affected_visual_corners_for_logic_cell(cell).map(visual_corner_to_vector2i)
     }
@@ -181,6 +335,10 @@ pub fn visual_corner_to_vector2i(coord: VisualCornerCoord) -> Vector2i {
 }
 
 pub fn asset_key_for_descriptor(descriptor: VisualTileDescriptor) -> GodotTileAssetKey {
+    default_asset_key_for_descriptor(descriptor)
+}
+
+fn default_asset_key_for_descriptor(descriptor: VisualTileDescriptor) -> GodotTileAssetKey {
     let rotation = descriptor.rotation().degrees_cw();
     let key = match descriptor.kind() {
         VisualTileKind::Empty => "empty".to_string(),
@@ -266,6 +424,43 @@ mod tests {
             let descriptor = VisualTileDescriptor::from_mask_bits(mask);
             assert_eq!(asset_key_for_descriptor(descriptor).as_str(), key);
         }
+    }
+
+    #[test]
+    fn catalog_overrides_descriptor_asset_keys_without_resource_ownership() {
+        let corner = VisualTileDescriptor::from_mask_bits(0b0001);
+        let edge = VisualTileDescriptor::from_mask_bits(0b0011);
+        let catalog = GodotTileAssetCatalog::new().with_mapping(corner, "stone_corner_a");
+
+        assert_eq!(
+            catalog.asset_key_for_descriptor(corner).as_str(),
+            "stone_corner_a"
+        );
+        assert_eq!(catalog.asset_key_for_descriptor(edge).as_str(), "edge_0");
+
+        let mapped = GodotVisualTileData::from_descriptor_with_resolver(
+            VisualCornerCoord::from_xy(0, 0),
+            corner,
+            &catalog,
+        );
+        assert_eq!(mapped.asset_key, "stone_corner_a");
+        assert_eq!(mapped.rotation_degrees_cw, 0);
+        assert_eq!(mapped.mask, 0b0001);
+    }
+
+    #[test]
+    fn catalog_replaces_existing_descriptor_mapping() {
+        let descriptor = VisualTileDescriptor::from_mask_bits(0b0010);
+        let mut catalog = GodotTileAssetCatalog::new();
+
+        catalog.set_mapping(descriptor, "corner_initial");
+        catalog.set_mapping(descriptor, "corner_replacement");
+
+        assert_eq!(catalog.mappings().len(), 1);
+        assert_eq!(
+            catalog.asset_key_for_descriptor(descriptor).as_str(),
+            "corner_replacement"
+        );
     }
 
     #[test]

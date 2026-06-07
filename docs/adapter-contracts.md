@@ -23,7 +23,8 @@ dirty-cell invalidation.
 ## Asset-Key Mapping
 
 The core descriptor is mapped to an adapter asset key using a policy local to
-the adapter. The Godot adapter currently uses stable string keys:
+the adapter. The Godot adapter ships a default resolver that uses stable string
+keys:
 
 ```text
 empty
@@ -47,6 +48,19 @@ debug
 
 Missing assets are adapter-local errors or placeholders. Core descriptors remain
 valid even when a Godot scene or resource is not available.
+
+The Godot adapter may also use a data-only catalog/resolver:
+
+```text
+GodotTileAssetCatalog
+GodotTileAssetResolver
+```
+
+This catalog maps `VisualTileDescriptor` values to string asset keys. It does
+not own or reference `Mesh`, `PackedScene`, `MultiMesh`, `GridMap`,
+`MeshLibrary`, materials, renderer resources, scene roots, or chunk lifecycle
+state. Downstream Godot projects resolve those keys into concrete resources in
+their own `TileMeshCatalog` or visual builder.
 
 ## Placement Mapping
 
@@ -73,6 +87,8 @@ The adapter exposes:
   changed logic cells to Godot-facing values/resources.
 - `GodotGridAdapter`, a pure Rust value mapper used by tests and non-Godot
   consumers.
+- `GodotTileAssetCatalog` and `GodotTileAssetResolver`, pure Rust data mapping
+  helpers for descriptor-to-string-key overrides.
 
 The Godot-facing classes call into `tile_topology` for descriptor and
 invalidation truth. They must not duplicate mask classification, dirty-cell
