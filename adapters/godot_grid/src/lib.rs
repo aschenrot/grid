@@ -245,6 +245,25 @@ impl GodotGridTopologyMapper {
 
         resources
     }
+
+    #[func]
+    pub fn visual_tiles_for_dirty_logic_cell(
+        &self,
+        logic_grid: Array<Variant>,
+        cell: Vector2i,
+    ) -> Array<Gd<GodotVisualTileResource>> {
+        let grid = dense_cell_grid_from_godot(&logic_grid);
+        let resolver = DualGridResolver::default();
+        let mut resources = Array::<Gd<GodotVisualTileResource>>::new();
+
+        for tile in resolver.resolve_logic_cell(&grid, LogicCellCoord::from_xy(cell.x, cell.y)) {
+            resources.push(&resource_from_data(GodotVisualTileData::from_visual_tile(
+                tile,
+            )));
+        }
+
+        resources
+    }
 }
 
 #[derive(Debug, Copy, Clone, Default)]

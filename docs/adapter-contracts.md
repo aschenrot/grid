@@ -85,7 +85,8 @@ The adapter exposes:
   `rotation_degrees_cw`, `mask`, and `is_empty` properties.
 - `GodotGridTopologyMapper`, a Godot `RefCounted` class that maps masks and
   changed logic cells to Godot-facing values/resources, and converts Godot
-  logic-grid arrays into visual tile resources through core topology.
+  logic-grid arrays into visual tile resources through core topology. It also
+  exposes dirty-cell conversion for exactly the four affected visual corners.
 - `GodotGridAdapter`, a pure Rust value mapper used by tests and non-Godot
   consumers.
 - `GodotTileAssetCatalog` and `GodotTileAssetResolver`, pure Rust data mapping
