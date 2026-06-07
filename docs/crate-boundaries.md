@@ -16,7 +16,9 @@ cli_dual_grid_demo -> grid_prelude + grid_generation
 `grid_math`. `tile_topology` depends only on `grid_math` and `grid_storage`.
 `grid_generation` is a consumer crate and is not part of the core dependency
 chain. `grid_prelude` does not re-export generation so normal core users do not
-pull procedural dependencies by accident.
+pull procedural dependencies by accident. See `docs/generation-boundary.md` for
+the current extraction boundary; the Godot World Lab generator is not moved into
+this crate until its reusable contract is stable.
 
 ## Kept, Renamed, Moved, Discarded
 
