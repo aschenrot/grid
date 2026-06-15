@@ -11,8 +11,8 @@ The topology API distinguishes the two coordinate spaces:
 
 ## Mask Bits
 
-For visual corner `(cx, cy)`, bits are assigned in clockwise reading order from
-the top-left sampled logic cell:
+For visual corner `(cx, cy)`, bits are assigned in row-major order from the
+top-left sampled logic cell:
 
 | Bit | Name | Logic coordinate |
 | --- | --- | --- |

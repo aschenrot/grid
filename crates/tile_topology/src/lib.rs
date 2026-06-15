@@ -31,7 +31,8 @@ impl Occupancy for bool {
 
 /// Four-bit dual-grid occupancy mask for one visual corner.
 ///
-/// For visual corner `(cx, cy)`, bit order is:
+/// For visual corner `(cx, cy)`, bit order is row-major from the
+/// northwest sampled cell:
 ///
 /// - bit 0: logic cell `(cx - 1, cy - 1)`
 /// - bit 1: logic cell `(cx, cy - 1)`
@@ -482,15 +483,15 @@ pub fn visual_tile_rotation(mask: TileMask4, kind: VisualTileKind) -> VisualTile
         VisualTileKind::Corner => match mask.bits() {
             0b0001 => 0,
             0b0010 => 90,
-            0b0100 => 180,
-            0b1000 => 270,
+            0b1000 => 180,
+            0b0100 => 270,
             _ => 0,
         },
         VisualTileKind::Edge => match mask.bits() {
             0b0011 => 0,
-            0b0101 => 90,
-            0b1010 => 270,
+            0b1010 => 90,
             0b1100 => 180,
+            0b0101 => 270,
             _ => 0,
         },
         VisualTileKind::Diagonal => match mask.bits() {
@@ -500,9 +501,9 @@ pub fn visual_tile_rotation(mask: TileMask4, kind: VisualTileKind) -> VisualTile
         },
         VisualTileKind::T => match mask.bits() {
             0b1110 => 0,
-            0b0111 => 90,
-            0b1011 => 180,
-            0b1101 => 270,
+            0b1101 => 90,
+            0b0111 => 180,
+            0b1011 => 270,
             _ => 0,
         },
         _ => 0,
@@ -584,16 +585,16 @@ mod tests {
             (0b0001, VisualTileKind::Corner, 0),
             (0b0010, VisualTileKind::Corner, 90),
             (0b0011, VisualTileKind::Edge, 0),
-            (0b0100, VisualTileKind::Corner, 180),
-            (0b0101, VisualTileKind::Edge, 90),
+            (0b0100, VisualTileKind::Corner, 270),
+            (0b0101, VisualTileKind::Edge, 270),
             (0b0110, VisualTileKind::Diagonal, 90),
-            (0b0111, VisualTileKind::T, 90),
-            (0b1000, VisualTileKind::Corner, 270),
+            (0b0111, VisualTileKind::T, 180),
+            (0b1000, VisualTileKind::Corner, 180),
             (0b1001, VisualTileKind::Diagonal, 0),
-            (0b1010, VisualTileKind::Edge, 270),
-            (0b1011, VisualTileKind::T, 180),
+            (0b1010, VisualTileKind::Edge, 90),
+            (0b1011, VisualTileKind::T, 270),
             (0b1100, VisualTileKind::Edge, 180),
-            (0b1101, VisualTileKind::T, 270),
+            (0b1101, VisualTileKind::T, 90),
             (0b1110, VisualTileKind::T, 0),
             (0b1111, VisualTileKind::Full, 0),
         ];

@@ -141,6 +141,7 @@ name = "godot_grid"
 version = "0.1.0"
 dependencies = [
  "godot",
+ "grid_generation",
  "grid_math",
  "grid_storage",
  "tile_topology",
