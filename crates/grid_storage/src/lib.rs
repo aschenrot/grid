@@ -116,10 +116,7 @@ impl<T> DenseGrid2D<T> {
     ///
     /// It does not catch panics in user callbacks or guarantee availability of
     /// physical memory on systems with overcommit.
-    pub fn try_from_fn<F>(
-        size: GridSize2,
-        mut f: F,
-    ) -> Result<Self, DenseGridBuildError>
+    pub fn try_from_fn<F>(size: GridSize2, mut f: F) -> Result<Self, DenseGridBuildError>
     where
         F: FnMut(GridCoord2) -> T,
     {
@@ -845,7 +842,10 @@ mod fallible_dense_construction_tests {
             Err(DenseGridBuildError::CoordinateDimensionsOutOfRange)
         );
         assert_eq!(
-            DenseGrid2D::<u64>::try_from_fn(GridSize2::new(i32::MAX as usize, i32::MAX as usize), |_| 0),
+            DenseGrid2D::<u64>::try_from_fn(
+                GridSize2::new(i32::MAX as usize, i32::MAX as usize),
+                |_| 0
+            ),
             Err(DenseGridBuildError::AllocationFailed)
         );
     }
