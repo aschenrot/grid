@@ -127,8 +127,8 @@ fn new_ca_legacy_profile_matches_existing_fixed_rule_on_thin_and_regular_grids()
                 CellType::Empty
             }
         });
-        let actual = cellular_automata_step_2d(&input, CaRules2D::legacy(), None, MAX_BYTES)
-            .unwrap();
+        let actual =
+            cellular_automata_step_2d(&input, CaRules2D::legacy(), None, MAX_BYTES).unwrap();
         let expected = cellular_automata_step(&input);
         for (a, b) in actual.cells().iter().zip(expected.cells()) {
             assert_eq!(*a, *b == CellType::Wall);
