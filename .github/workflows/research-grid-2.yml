@@ -1,0 +1,30 @@
+name: "Research Grid #2 Neutral Noise and CA Contracts"
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "crates/grid_generation/tests/contract_2_scalar_ca.rs"
+      - "research/grid-2/**"
+      - ".github/workflows/research-grid-2.yml"
+  workflow_dispatch:
+
+jobs:
+  actual-grid-domain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust 1.100.0
+        run: |
+          rustup toolchain install 1.100.0 --profile minimal
+          rustup default 1.100.0
+      - name: Exact original fused-scalar and CA candidate tests
+        run: cargo test --locked -p grid_generation --test contract_2_scalar_ca -- --nocapture
+      - name: Existing generation library regression
+        run: cargo test --locked -p grid_generation --lib
+      - name: Authoritative dual-grid topology regression
+        run: cargo test --locked -p tile_topology
