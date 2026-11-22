@@ -59,11 +59,14 @@ fn safe_range_reference_examples_still_work() {
     let mut sparse = SparseGrid2D::new();
     sparse.set(GridCoord2::new(-2, -1), 11u8);
     sparse.set(GridCoord2::new(4, 5), 12u8);
-    assert_eq!(sparse.bounds_rect(), Some(GridRect::new(
-        GridCoord2::new(-2, -1),
-        GridSize2::new(7, 7),
-    )));
+    assert_eq!(
+        sparse.bounds_rect(),
+        Some(GridRect::new(GridCoord2::new(-2, -1), GridSize2::new(7, 7),))
+    );
     let chunked = ChunkedGrid2D::<u8>::new(GridSize2::new(3, 3));
     assert_eq!(chunked.get(GridCoord2::new(-7, -8)), None);
-    assert_eq!(row_major_index(GridCoord2::new(1, 1), GridSize2::new(3, 3)), Some(4));
+    assert_eq!(
+        row_major_index(GridCoord2::new(1, 1), GridSize2::new(3, 3)),
+        Some(4)
+    );
 }
