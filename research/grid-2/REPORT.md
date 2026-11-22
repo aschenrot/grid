@@ -61,11 +61,22 @@ cargo test --locked -p tile_topology
 
 **Verified research CI (historical branch head):** [GitHub Actions run 45002130037, attempt 2](https://github.com/aschenrot/grid/actions/runs/45002130037), source head `ef5772f2cab5e8b0d8e46f87e433e58944916fec`, **SUCCESS** on GitHub-hosted Linux/Rust 1.100.0. The workflow actually executed and passed the exact scalar/CA candidate test binary, existing generation library tests and the authoritative topology tests. The earlier failed attempts were account-exhausted *private-repository* Actions usage, not observed Rust failures. The owner made Grid public and CI resumed. **Re-validate on an updated head containing the merged #4 clean cutover** before considering this research integrated or an API accepted.
 
+## Verified on the current neutral Grid baseline (2026-11-22)
+
+After the owner-authorized Godot/lab cutover merged into `main` (`74afb5e4603aec7e5d6151157774fe718b43a264`), the cutover was incorporated **non-destructively** into this research branch. All production neutral files match the accepted `main`; the research-specific diff consists of this report, a test-local `contract_2_scalar_ca.rs` candidate and its focused workflow. There is no `Lab*` implementation or Godot dependency in the research candidate.
+
+On head `abde1eadfeb59a52e38257fca425cffbac6d4eea`, GitHub-hosted Linux/Rust 1.100.0 passed:
+
+- [Research Grid #2 #45040594686](https://github.com/aschenrot/grid/actions/runs/45040594686): sampled-scalar vs actual fused legacy every-cell parity (48 settings combinations), candidate CA vs actual legacy behavior, protected border and boundary-read independence, resource preflight, non-room scalar statistics and topology integration.
+- [Grid Neutral Cutover #45040594703](https://github.com/aschenrot/grid/actions/runs/45040594703): Rust formatting, default core tests, generation tests, topology tests, no-Godot/metadata check and seeded CLI. A prior failure in this job exposed only missing `rustfmt` formatting for the test-local file; its diff was taken directly from the Linux runner and applied without changing test semantics.
+
+**Important limits despite passing CI:** tests prove only the finite eager legacy sampler **at origin (0,0)**, strict threshold, fixed legacy-compatible CA and one candidate protected-border/OOB policy, not general translated world-space regions, composable lazy fields, arbitrary custom masks, guaranteed cross-version bitwise noise stability, native/GPU process ownership, memory-safety under OOM or an accepted public ABI. The candidate `check_candidate_request` protects against overflow/declared byte budget but the existing `DenseGrid2D::from_fn` remains infallible and may panic/abort on allocation failure. Library-level fallible construction, region offset and budget scope are **open design gates**, not solved by this test.
+
 ## Decision gates and bounded follow-up
 
-1. Rebase/merge accepted main `74afb5e4603aec7e5d6151157774fe718b43a264` non-destructively into the candidate and re-run exact-head Linux CI; retain logs for any failures.
+1. **Completed**: incorporated accepted main without rewriting research history; exact-head research and default CI green on `abde1ead`. Reconfirm checks if this document changes the head before integration.
 2. Review any sample/threshold parity failures or invalid numeric policy choices; compare A/B/C/D and record maintainer acceptance/revision in Grid #2.
-3. Verify the new branch inherits #4's current `docs/generation-boundary.md` and that current Grid remains Godot-free; no lab migration is in scope.
+3. **Completed**: the research branch inherits Grid #4's current `docs/generation-boundary.md`; current Grid remains Godot-free. No lab migration is in scope.
 4. Only then open implementation issues for neutral Grid operations, their tests and independent Riesel Workbench integration, respecting the separate #187 typed-value execution specification.
 
 No production API implementation, lab migration, renderer or Graph SDK is authorized by this research document.
