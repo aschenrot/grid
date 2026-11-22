@@ -1,60 +1,20 @@
 # Crate Boundaries
 
-## Dependency Direction
+Dependencies run from consumers to the crates they use:
 
-```text
-grid_math -> grid_storage -> tile_topology -> grid_prelude
-                  ^              ^
-                  |              |
-             grid_generation ----+
+| Crate | Dependencies within Grid |
+| --- | --- |
+| `grid_math` | None |
+| `grid_storage` | `grid_math` |
+| `tile_topology` | `grid_math`, `grid_storage` |
+| `grid_prelude` | `grid_math`, `grid_storage`, `tile_topology` |
+| `grid_generation` (optional) | `grid_math`, `grid_storage`, `tile_topology` |
+| `cli_dual_grid_demo` | `grid_prelude`, `grid_generation` |
 
-cli_dual_grid_demo -> grid_prelude + grid_generation
-```
+Default workspace members are math, storage, topology and prelude. Generation and the CLI are tested separately; the prelude does not import procedural generation dependencies.
 
-`grid_math` has no required dependencies. `grid_storage` depends only on
-`grid_math`. `tile_topology` depends only on `grid_math` and `grid_storage`.
-`grid_generation` is a consumer crate and is not part of the core dependency
-chain. `grid_prelude` does not re-export generation so normal core users do not
-pull procedural dependencies by accident. See `docs/generation-boundary.md` for
-the current neutral-generation boundary. The former Godot adapter and World Lab
-API were explicitly removed in [#4](https://github.com/aschenrot/grid/issues/4);
-see `docs/migrations/godot-lab-cutover.md`.
+The core owns data and topology. Rendering, scene resources, execution graphs and host lifecycle belong to consuming applications. Adapters currently live outside this workspace; that location is not a permanent ban on optional integration crates.
 
-## Kept, Renamed, Moved, Discarded
+## Migration history
 
-From the in-repository `gridcore` prototype:
-
-- `Grid2d` storage moved to `grid_storage::DenseGrid2D`.
-- `corner_mask()` moved to `tile_topology::dual_grid_mask_at()` with
-  `VisualCornerCoord`.
-- `mesh_tiles()` moved to `tile_topology::form_visual_tiles()`.
-- `MeshType` became `tile_topology::VisualTileKind`.
-- `MeshId` became `tile_topology::VisualTileDescriptor`.
-- `fill_with_noise()` moved to `grid_generation::fill_with_noise()`.
-- Required `glam` coordinates were replaced with `grid_math::GridCoord2`.
-- Core print helpers were discarded in favor of demo-local output functions.
-
-From the separate `/Users/joshua/Projekte/gridcore` prototype:
-
-- `GridRead`, `GridWrite`, and `GridBounds` were kept and moved to
-  `grid_storage`.
-- Dense-grid iterators were kept and moved to `grid_storage::DenseGrid2D`.
-- Abstract resolver concepts informed `tile_topology::DualGridResolver` and
-  `TileRule`.
-- `MeshPlacement`, `Vec3`, `Quat`, renderer mesh ids, and mesh placement
-  ownership were discarded from core crates and are adapter concerns.
-- Prototype `Tileset` mesh lookup is represented by adapter-local asset-key
-  mapping rather than core-owned mesh handles.
-
-## Workspace Policy
-
-Default workspace members are core crates only:
-
-- `crates/grid_math`
-- `crates/grid_storage`
-- `crates/tile_topology`
-- `crates/grid_prelude`
-
-The CLI demo and generation are workspace members but stay outside the default
-validation surface unless explicitly tested. Engine adapters, if needed, are
-separate downstream integrations.
+Earlier `gridcore` prototypes were split into these crates. For renamed APIs see [repository prototype migration](migrations/current-grid.md) and [external prototype migration](migrations/external-gridcore.md). The removed Godot adapter and lab generation interfaces are documented in the [Godot migration guide](migrations/godot-lab-cutover.md).
