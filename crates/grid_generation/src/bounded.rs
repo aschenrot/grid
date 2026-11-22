@@ -117,14 +117,18 @@ pub fn sample_noise_2d(
         }
     }
 
-    DenseGrid2D::try_from_fn(size, |local| {
+    let samples = DenseGrid2D::try_from_fn(size, |local| {
         let x = (i64::from(settings.origin.x) + i64::from(local.x)) as f32;
         let y = (i64::from(settings.origin.y) + i64::from(local.y)) as f32;
         let (warped_x, warped_y) = noise.domain_warp_2d(x, y);
         let value = (noise.get_noise_2d(warped_x, warped_y) + 1.0) / 2.0;
         (value * 1.3).clamp(0.0, 1.0)
     })
-    .map_err(Into::into)
+    .map_err(GenerationError::from)?;
+    if samples.cells().iter().any(|value| !value.is_finite()) {
+        return Err(GenerationError::NonFiniteSample);
+    }
+    Ok(samples)
 }
 
 /// Explicit scalar-to-occupancy comparison; never a hidden port coercion.
