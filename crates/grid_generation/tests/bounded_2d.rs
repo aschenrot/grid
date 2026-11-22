@@ -4,7 +4,7 @@ use grid_generation::bounded::{
 };
 use grid_generation::{NoiseFillSettings, cellular_automata_step, fill_with_noise};
 use grid_math::{GridCoord2, GridSize2};
-use grid_storage::DenseGrid2D;
+use grid_storage::{DenseGrid2D, GridRead};
 use tile_topology::{CellType, form_visual_tiles};
 
 const MAX_BYTES: usize = 1024 * 1024;
@@ -273,5 +273,34 @@ fn rejects_unsafe_sizes_regions_budgets_and_rules_before_execution() {
             MAX_BYTES,
         ),
         Err(GenerationError::InvalidRule)
+    );
+}
+
+struct SparseWindow {
+    value: bool,
+}
+
+impl GridRead for SparseWindow {
+    type Cell = bool;
+
+    fn size(&self) -> GridSize2 {
+        GridSize2::new(2, 2)
+    }
+
+    fn get(&self, coord: GridCoord2) -> Option<&bool> {
+        if coord == GridCoord2::new(1, 0) {
+            None
+        } else {
+            Some(&self.value)
+        }
+    }
+}
+
+#[test]
+fn incomplete_gridread_source_fails_without_panicking() {
+    let partial = SparseWindow { value: true };
+    assert_eq!(
+        cellular_automata_step_2d(&partial, CaRules2D::legacy(), None, MAX_BYTES),
+        Err(GenerationError::MissingInputCell)
     );
 }
