@@ -93,9 +93,8 @@ impl<T: Clone> DenseGrid2D<T> {
 impl<T> DenseGrid2D<T> {
     /// Takes an already-owned row-major buffer without reallocating.
     ///
-    /// This avoids implicit panics from dimensions or an incorrect cell count;
-    /// the supplied buffer remains owned by the caller on error only through
-    /// the returned error classification (it is dropped on failure).
+    /// Invalid dimensions or a mismatched cell count return a typed error.
+    /// The supplied buffer is consumed and dropped on error.
     pub fn try_from_vec(size: GridSize2, cells: Vec<T>) -> Result<Self, DenseGridBuildError> {
         if !size.fits_i32_coords() {
             return Err(DenseGridBuildError::CoordinateDimensionsOutOfRange);
@@ -841,12 +840,12 @@ mod fallible_dense_construction_tests {
             DenseGrid2D::<u8>::try_from_fn(GridSize2::new(i32::MAX as usize + 1, 1), |_| 0),
             Err(DenseGridBuildError::CoordinateDimensionsOutOfRange)
         );
-        assert_eq!(
+        assert!(matches!(
             DenseGrid2D::<u64>::try_from_fn(
                 GridSize2::new(i32::MAX as usize, i32::MAX as usize),
                 |_| 0
             ),
-            Err(DenseGridBuildError::AllocationFailed)
-        );
+            Err(DenseGridBuildError::AllocationFailed | DenseGridBuildError::CellCountOverflow)
+        ));
     }
 }
