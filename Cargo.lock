@@ -65,7 +65,7 @@ dependencies = [
 name = "grid_math"
 version = "0.1.0"
 dependencies = [
- "glam 0.31.0",
+ "glam",
 ]
 
 [[package]]
