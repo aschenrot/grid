@@ -1,57 +1,22 @@
 # Generation Boundary
 
-`grid_generation` is an optional consumer crate for reusable, engine-neutral
-grid generation helpers. It is not part of the default workspace members and it
-is not a dependency of `grid_math`, `grid_storage`, `tile_topology`, or
-`grid_prelude`.
+`grid_generation` is an optional **engine-neutral** consumer of `grid_math`, `grid_storage`, and `tile_topology`. None of the core crates depends on it.
 
-## Current Scope
+## Active generation APIs
 
-The crate may own small neutral helpers such as:
+- `NoiseFillSettings`, `SeededGridGenerator`
+- `fill_with_noise`: current FastNoiseLite sampling/remap and strict threshold to `DenseGrid2D<CellType>`
+- `cellular_automata_step`: existing fixed eight-neighbor, out-of-bounds-as-occupied update
+- `test_pattern`: deterministic demonstration data
 
-- seeded helper settings;
-- noise fill over `DenseGrid2D<CellType>`;
-- cellular automata steps over grid storage;
-- deterministic test patterns.
+These are the compatibility baseline. The separate [Grid #2 specification](https://github.com/aschenrot/grid/issues/2) owns the prospective finite sampled scalar `Noise2D`, explicit threshold and configurable protected-write CA contracts. They are **not** implemented or approved by the Godot cleanup.
 
-Those helpers consume grid topology and storage. They do not define world chunk
-streaming, Godot realization, Runenwerk product meaning, SDF payloads, or asset
-catalogs.
+## Owner-authorized Godot/World Lab cutover
 
-## Godot World Lab Boundary
+The former `adapters/godot_grid` package, `grid_generation::Lab*` types, `generate_lab_chunk` functions, owned-halo formation, layer constants and product-specific collision merge helpers have been **removed in [#4](https://github.com/aschenrot/grid/issues/4)**. The preceding documentation asserted these lab APIs were outside Grid while the actual source still implemented them; this breaking cutover resolves the contradictory boundary.
 
-The current `Crystonix/godot_world_lab` generator stays outside
-`grid_generation`.
+The old Godot adapter used those APIs. Any *external* World Lab or GDExtension consumer must explicitly migrate or pin a pre-cutover commit. The change does not prove downstream migration or output compatibility. See [migration instructions](migrations/godot-lab-cutover.md).
 
-It is blocked from extraction because it still owns lab-specific behavior:
+## Non-goals
 
-- chunk/provider diagnostics;
-- `GeneratedChunkData` dictionaries;
-- debug marker schema;
-- wall threshold tuning;
-- room and path carving experiments;
-- cache/version behavior tied to the lab provider;
-- GDScript array representation.
-
-Only a future stable algorithm contract should move here. A stable contract
-needs a neutral cell schema, deterministic settings type, host-independent
-debug/observation model, and tests proving the output does not depend on Godot
-or Runenwerk semantics.
-
-## Non-Goals
-
-`grid_generation` must not own:
-
-- Godot nodes, resources, previews, or scenes;
-- `spatial_streaming` lifecycle state;
-- chunk providers, async work, cache ownership, or save/load;
-- SDF, ECS, renderer resources, product semantics, or procgen graphs;
-- tile-kit asset manifests or mesh/material catalogs.
-
-## M14 Decision
-
-Do not move the Godot lab generator into `grid_generation` for M14.
-
-The existing crate remains available as an optional neutral helper crate, while
-Godot World Lab keeps proving generation behavior until the reusable contract is
-stable enough to extract without dragging lab semantics into `grid`.
+This crate must not own Godot nodes, GDScript data or chunk-provider diagnostics; ECS, SDF or game-specific meaning; rendering, editor graphs, capability/provider registries, process management, network transports, GPU resources, world save/load or asset catalogs. Core topology remains authoritative in `tile_topology`.

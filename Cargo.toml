@@ -6,7 +6,6 @@ members = [
   "crates/tile_topology",
   "crates/grid_generation",
   "crates/grid_prelude",
-  "adapters/godot_grid",
   "demos/cli_dual_grid_demo",
 ]
 
@@ -25,7 +24,6 @@ license = "MIT OR Apache-2.0"
 [workspace.dependencies]
 fastnoise-lite = "1.1.1"
 glam = "0.31.0"
-godot = "0.5.3"
 grid_generation = { path = "crates/grid_generation" }
 grid_math = { path = "crates/grid_math" }
 grid_prelude = { path = "crates/grid_prelude" }
