@@ -1,76 +1,36 @@
 # Architecture
 
-This repository owns reusable grid math, storage, dual-grid topology, optional
-generation helpers, and engine adapters. The source of truth is the split crate
-workspace under `crates/`, plus adapter crates under `adapters/`.
+Grid separates coordinates, containers, dual-grid topology, and optional generation. Current source modules live under `crates/`; the CLI example is under `demos/`.
 
-## Crate Shape
+## Crate responsibilities
 
-- `grid_math` owns coordinates, sizes, bounds, directions, neighbor offsets,
-  row-major index helpers, and dual-grid coordinate helpers.
-- `grid_storage` owns dense storage and common grid access traits. It depends
-  only on `grid_math`.
-- `tile_topology` owns occupancy, dual-grid mask formation, visual tile
-  classification, descriptor creation, and dirty-cell invalidation. It depends
-  only on `grid_math` and `grid_storage`.
-- `grid_generation` owns optional procedural generation. It may depend on
-  `fastnoise-lite` and `rand`.
-- `grid_prelude` is a curated re-export crate for normal core usage.
+- `grid_math`: 2D/3D coordinates, sizes, bounds, indexing, directions and neighbor offsets.
+- `grid_storage`: dense, sparse and chunked grids. `GridRead` and `GridWrite` describe **finite, zero-origin 2D** access; world-space sparse/chunked grids expose their own accessors and bounds.
+- `tile_topology`: occupancy masks, 16 tile classifications, rotations, visual descriptors and affected-corner invalidation.
+- `grid_generation`: optional noise fill, seeded settings, fixed-rule cellular automata and test patterns. It depends on math, storage and topology.
+- `grid_prelude`: wildcard re-exports of the math, storage and topology public items. Generation is not included.
 
-Core crates are engine-neutral. They do not depend on Godot, Bevy, Runenwerk,
-ECS, renderers, asset systems, `fastnoise-lite`, `rand`, or required `glam`.
-`grid_math` exposes optional `glam` conversions only behind the `glam` feature.
+Core crates do not require an engine, ECS, renderer, noise or random-number library. `grid_math` offers `glam` conversions behind an optional feature.
 
-## Frozen Coordinate Contract
+## Coordinate conventions
 
-The grid uses integer coordinates with origin `(0, 0)` at the top-left logic
-cell. Positive `x` moves right. Positive `y` moves down.
+A finite logic grid starts at `(0, 0)`; positive X moves right and positive Y down. `LogicCellCoord` and `VisualCornerCoord` distinguish topology coordinates.
 
-`tile_topology` uses semantic coordinate wrappers at the public topology
-boundary:
+For a `width × height` logic grid, the visual corner grid has `(width + 1) × (height + 1)` samples. Corner `(cx, cy)` reads:
 
-- `LogicCellCoord` names a logic cell.
-- `VisualCornerCoord` names a visual corner/intersection.
+| Mask bit | Logic cell |
+| --- | --- |
+| 0, northwest | `(cx - 1, cy - 1)` |
+| 1, northeast | `(cx, cy - 1)` |
+| 2, southwest | `(cx - 1, cy)` |
+| 3, southeast | `(cx, cy)` |
 
-A logic grid with dimensions `width x height` has a dual visual corner grid with
-dimensions `(width + 1) x (height + 1)`. A visual corner coordinate `(cx, cy)`
-samples these four logic cells:
+Out-of-bounds cells are treated as empty during topology formation. The standard tile rule uses clockwise quarter-turn rotations. A custom rule can supply other descriptors; see the [dual-grid model](dual-grid-model.md).
 
-- bit 0, northwest: `(cx - 1, cy - 1)`
-- bit 1, northeast: `(cx, cy - 1)`
-- bit 2, southwest: `(cx - 1, cy)`
-- bit 3, southeast: `(cx, cy)`
+A logic-cell change at `(x, y)` affects four corners: `(x, y)`, `(x+1, y)`, `(x, y+1)`, `(x+1, y+1)`.
 
-Out-of-bounds logic cells are empty. Negative coordinates are never contained in
-a dense grid and therefore also resolve as empty during mask formation.
+## Block-origin compatibility
 
-## Rotation Contract
+Older prototypes named a `2 × 2` sample by its top-left logic cell. Block origin `(x, y)` maps to visual corner `(x+1, y+1)`. The block-origin helper remains a convenience, not a second coordinate system.
 
-Visual tile rotations are clockwise degrees in the set `0`, `90`, `180`, and
-`270`. Rotation is descriptor metadata only; core crates do not create meshes,
-nodes, transforms, quaternions, ECS bundles, or asset handles.
-
-## Dirty-Cell Invalidation
-
-Changing logic cell `(x, y)` affects exactly four visual corners:
-
-- `(x, y)`
-- `(x + 1, y)`
-- `(x, y + 1)`
-- `(x + 1, y + 1)`
-
-Adapters and downstream consumers use this list to update visual data. They must
-not recompute a different invalidation contract.
-
-## Block-Origin Convenience
-
-Some prototypes name a visual sample by the top-left logic cell of a `2 x 2`
-block:
-
-```text
-(x, y)      (x + 1, y)
-(x, y + 1)  (x + 1, y + 1)
-```
-
-That is available as a convenience helper, but it is not the core coordinate
-contract. Block origin `(x, y)` maps to visual corner `(x + 1, y + 1)`.
+**Range limits:** current APIs use signed 32-bit coordinates; extreme arithmetic/bounds behavior is under review in [Grid #9](https://github.com/aschenrot/grid/issues/9). These conventions do not imply every extreme value is presently safe.
