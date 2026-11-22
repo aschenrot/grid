@@ -16,7 +16,6 @@ workspace under `crates/`, plus adapter crates under `adapters/`.
 - `grid_generation` owns optional procedural generation. It may depend on
   `fastnoise-lite` and `rand`.
 - `grid_prelude` is a curated re-export crate for normal core usage.
-- `adapters/godot_grid` maps neutral topology descriptors to Godot-facing data.
 
 Core crates are engine-neutral. They do not depend on Godot, Bevy, Runenwerk,
 ECS, renderers, asset systems, `fastnoise-lite`, `rand`, or required `glam`.

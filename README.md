@@ -1,21 +1,20 @@
 # Grid
 
-Reusable grid storage, dual-grid topology, procedural generation helpers, and a
-thin Godot adapter.
+Reusable, **engine-neutral** grid storage, dual-grid topology, and optional procedural generation.
 
 ## Workspace
 
-The default workspace builds only engine-neutral core crates:
-
+The default Cargo workspace builds only:
 - `crates/grid_math`
 - `crates/grid_storage`
 - `crates/tile_topology`
 - `crates/grid_prelude`
 
-Generation, demos, and adapters are workspace members but are outside
-`default-members`.
+The optional `crates/grid_generation` and `demos/cli_dual_grid_demo` are separate workspace members. No game engine, ECS, UI, renderer, or adapter dependency is required by the core.
 
-## Core Usage
+**Breaking change:** the Godot adapter and lab-specific chunk generator were removed in the owner-authorized [Grid #4 clean cutover](https://github.com/aschenrot/grid/issues/4). Existing external Godot integrations are **not automatically migrated**. See [migration notes](docs/migrations/godot-lab-cutover.md).
+
+## Core usage
 
 ```rust
 use grid_prelude::*;
@@ -31,23 +30,14 @@ let tile = visual
 assert_eq!(tile.descriptor().mask().bits(), 0b1000);
 ```
 
-Run the CLI dual-grid demo:
+## Commands
 
-```text
-cargo run -p cli_dual_grid_demo
-cargo run -p cli_dual_grid_demo -- --seed 123
-cargo run -p cli_dual_grid_demo -- --random-seed
+```sh
+cargo test --locked
+cargo test --locked -p grid_generation
+cargo test --locked -p tile_topology
+cargo run --locked -p cli_dual_grid_demo -- --seed 123
+cargo metadata --locked --no-deps
 ```
 
-Run the normal core validation surface:
-
-```text
-cargo test
-```
-
-Run the Godot adapter check explicitly:
-
-```text
-cargo test -p godot_grid
-cargo build -p godot_grid
-```
+The existing `fill_with_noise` and `cellular_automata_step` algorithms remain intact; independent scalar sampling and configurable CA are being specified in [Grid #2](https://github.com/aschenrot/grid/issues/2). Graph nodes, typed ports and execution remain the responsibility of consuming applications/platforms such as Riesel, not Grid core.
