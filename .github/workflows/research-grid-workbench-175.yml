@@ -1,0 +1,27 @@
+name: Research Grid Workbench Domain #175
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "crates/grid_generation/tests/workbench_175.rs"
+      - ".github/workflows/research-grid-workbench-175.yml"
+  workflow_dispatch:
+
+jobs:
+  grid-domain-boundaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust 1.100.0
+        run: |
+          rustup toolchain install 1.100.0 --profile minimal
+          rustup default 1.100.0
+      - name: Run domain integration research
+        run: cargo test --locked -p grid_generation --test workbench_175
+      - name: Verify upstream topology tests
+        run: cargo test --locked -p tile_topology
