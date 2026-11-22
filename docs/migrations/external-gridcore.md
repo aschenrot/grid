@@ -1,23 +1,12 @@
-# Migration Notes: External Gridcore Prototype
+# External Gridcore Prototype Migration
 
-The external `/Users/joshua/Projekte/gridcore` repository was used as prototype
-input only.
+An earlier, separate `gridcore` prototype informed the current API.
 
-Kept:
+| Prototype concept | Current location |
+| --- | --- |
+| `GridRead`, `GridWrite`, `GridBounds` | `grid_storage` traits |
+| Dense 2D iterators and neighbor helpers | `grid_storage::DenseGrid2D` |
+| Resolver separating topology rules from storage | `tile_topology::DualGridResolver` |
+| Tile classification rules | `tile_topology::TileRule` and descriptors |
 
-- `GridRead`, `GridWrite`, and `GridBounds` trait shape.
-- Dense 2D storage iterators and neighbor helpers.
-- Resolver idea that separates topology rules from storage.
-
-Renamed or moved:
-
-- `DenseGrid2D` moved to `grid_storage` with `grid_math::GridCoord2`.
-- Resolver behavior moved to `tile_topology::DualGridResolver`.
-- Tile-rule behavior moved to neutral descriptor creation.
-
-Discarded from core:
-
-- `MeshPlacement`.
-- Renderer mesh ids.
-- `Vec3` and `Quat` placement data.
-- Any assumption that core topology owns engine transforms or assets.
+Renderer mesh IDs, placement transforms, `Vec3` and `Quat` were left out of core. Adapters can use the neutral descriptors to implement presentation.
