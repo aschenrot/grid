@@ -1,3 +1,5 @@
+> **Archived original implementation prompt.** It describes the retired Godot adapter and is no longer executable guidance after the owner-authorized [Grid #4 clean cutover](https://github.com/aschenrot/grid/issues/4). Do not recreate `godot_grid` to satisfy this historical checklist; use the [current architecture](architecture.md) and [migration notice](migrations/godot-lab-cutover.md).
+
 # Goal Prompt: Land Core Split, CLI Demo, and Godot Adapter
 
 Use this prompt to drive an implementation goal for `/Users/joshua/Projekte/grid`.
