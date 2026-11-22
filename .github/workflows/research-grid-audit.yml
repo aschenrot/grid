@@ -1,0 +1,29 @@
+name: Research Grid Full Workspace Audit
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "crates/grid_storage/tests/edge_contract_observations.rs"
+      - ".github/workflows/research-grid-audit.yml"
+  workflow_dispatch:
+
+jobs:
+  workspace-and-features:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust 1.100.0 with clippy
+        run: |
+          rustup toolchain install 1.100.0 --profile minimal
+          rustup component add clippy rustfmt --toolchain 1.100.0
+          rustup default 1.100.0
+      - name: Full workspace tests with all features
+        run: cargo test --locked --workspace --all-features
+      - name: Lint all workspace targets and features
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+      - name: Generate workspace API docs
+        run: cargo doc --locked --workspace --all-features --no-deps
