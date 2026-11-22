@@ -35,8 +35,12 @@ fn check_candidate_request(
     if !size.fits_i32_coords() {
         return Err(CandidateError::CoordNotRepresentable);
     }
-    let count = size.checked_area().ok_or(CandidateError::CellCountOverflow)?;
-    let bytes = count.checked_mul(FIELD_BYTES).ok_or(CandidateError::CellCountOverflow)?;
+    let count = size
+        .checked_area()
+        .ok_or(CandidateError::CellCountOverflow)?;
+    let bytes = count
+        .checked_mul(FIELD_BYTES)
+        .ok_or(CandidateError::CellCountOverflow)?;
     if bytes > max_field_bytes {
         return Err(CandidateError::ExceedsBudget);
     }
@@ -107,13 +111,14 @@ fn candidate_ca_step(input: &DenseGrid2D<CellType>, rule: CandidateCa) -> DenseG
         if is_border(coord, input.size(), rule.protected_border) {
             return previous;
         }
-        let neighbors = ALL_NEIGHBORS_2D.iter().filter(|offset| {
-            match input.get(coord + **offset) {
+        let neighbors = ALL_NEIGHBORS_2D
+            .iter()
+            .filter(|offset| match input.get(coord + **offset) {
                 Some(CellType::Wall) => true,
                 Some(CellType::Empty) => false,
                 None => matches!(rule.outside, Outside::Occupied),
-            }
-        }).count();
+            })
+            .count();
 
         let min = match previous {
             CellType::Empty => rule.birth_min,
@@ -140,8 +145,16 @@ fn separate_scalar_sampling_and_threshold_match_existing_fused_noise_at_every_ce
                 let scalar = candidate_sample_legacy_noise(size, settings);
                 let separate = candidate_threshold(&scalar, threshold);
 
-                assert_eq!(legacy, separate, "seed={seed} scale={scale} threshold={threshold}");
-                assert!(scalar.cells().iter().all(|x| x.is_finite() && (0.0..=1.0).contains(x)));
+                assert_eq!(
+                    legacy, separate,
+                    "seed={seed} scale={scale} threshold={threshold}"
+                );
+                assert!(
+                    scalar
+                        .cells()
+                        .iter()
+                        .all(|x| x.is_finite() && (0.0..=1.0).contains(x))
+                );
             }
         }
     }
@@ -153,9 +166,12 @@ fn sampled_scalar_is_reusable_as_a_non_room_data_product() {
     let a = candidate_sample_legacy_noise(GridSize2::new(64, 64), settings);
     let b = candidate_sample_legacy_noise(GridSize2::new(64, 64), settings);
     assert_eq!(a.cells(), b.cells());
-    let stats = a.cells().iter().fold((f32::INFINITY, f32::NEG_INFINITY, 0.0f64), |acc, v| {
-        (acc.0.min(*v), acc.1.max(*v), acc.2 + f64::from(*v))
-    });
+    let stats = a
+        .cells()
+        .iter()
+        .fold((f32::INFINITY, f32::NEG_INFINITY, 0.0f64), |acc, v| {
+            (acc.0.min(*v), acc.1.max(*v), acc.2 + f64::from(*v))
+        });
     let mean = stats.2 / a.len() as f64;
     assert!((0.0..=1.0).contains(&mean));
     assert!(stats.0 <= stats.1);
@@ -196,7 +212,10 @@ fn proposed_legacy_ca_profile_reproduces_existing_fixed_rule_exactly() {
                 CellType::Empty
             }
         });
-        assert_eq!(candidate_ca_step(&source, rule), cellular_automata_step(&source));
+        assert_eq!(
+            candidate_ca_step(&source, rule),
+            cellular_automata_step(&source)
+        );
     }
 }
 
@@ -226,7 +245,11 @@ fn protected_mixed_border_remains_bit_exact_through_each_ca_step() {
         current = candidate_ca_step(&current, rule);
         for (coord, cell) in current.iter_cells() {
             if is_border(coord, size, 1) {
-                assert_eq!(Some(cell), original.get(coord), "step {iteration} coordinate {coord:?}");
+                assert_eq!(
+                    Some(cell),
+                    original.get(coord),
+                    "step {iteration} coordinate {coord:?}"
+                );
             }
         }
     }
@@ -243,20 +266,28 @@ fn boundary_reads_and_write_protection_are_independent_rules() {
         protected_border: 0,
         outside: Outside::Empty,
     };
+    assert_eq!(candidate_ca_step(&input, base).cells(), &[CellType::Empty]);
     assert_eq!(
-        candidate_ca_step(&input, base).cells(),
-        &[CellType::Empty]
-    );
-    assert_eq!(
-        candidate_ca_step(&input, CandidateCa { outside: Outside::Occupied, ..base }).cells(),
+        candidate_ca_step(
+            &input,
+            CandidateCa {
+                outside: Outside::Occupied,
+                ..base
+            }
+        )
+        .cells(),
         &[CellType::Wall]
     );
     assert_eq!(
-        candidate_ca_step(&input, CandidateCa {
-            outside: Outside::Occupied,
-            protected_border: 1,
-            ..base
-        }).cells(),
+        candidate_ca_step(
+            &input,
+            CandidateCa {
+                outside: Outside::Occupied,
+                protected_border: 1,
+                ..base
+            }
+        )
+        .cells(),
         &[CellType::Empty]
     );
 }
@@ -272,7 +303,12 @@ fn a_fallible_node_request_gate_precedes_infallible_dense_grid_constructors() {
         Err(CandidateError::EmptySize),
     );
     assert_eq!(
-        check_candidate_request(GridSize2::new(i32::MAX as usize + 1, 1), 0.1, 0.5, usize::MAX),
+        check_candidate_request(
+            GridSize2::new(i32::MAX as usize + 1, 1),
+            0.1,
+            0.5,
+            usize::MAX
+        ),
         Err(CandidateError::CoordNotRepresentable),
     );
     assert_eq!(
