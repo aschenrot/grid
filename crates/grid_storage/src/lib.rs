@@ -57,6 +57,15 @@ pub trait GridBounds {
     }
 }
 
+/// Why a bounded caller could not construct a finite dense grid.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum DenseGridBuildError {
+    CoordinateDimensionsOutOfRange,
+    CellCountOverflow,
+    CellCountMismatch { expected: usize, actual: usize },
+    AllocationFailed,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DenseGrid2D<T> {
     size: GridSize2,
@@ -82,6 +91,54 @@ impl<T: Clone> DenseGrid2D<T> {
 }
 
 impl<T> DenseGrid2D<T> {
+    /// Takes an already-owned row-major buffer without reallocating.
+    ///
+    /// Invalid dimensions or a mismatched cell count return a typed error.
+    /// The supplied buffer is consumed and dropped on error.
+    pub fn try_from_vec(size: GridSize2, cells: Vec<T>) -> Result<Self, DenseGridBuildError> {
+        if !size.fits_i32_coords() {
+            return Err(DenseGridBuildError::CoordinateDimensionsOutOfRange);
+        }
+        let expected = size
+            .checked_area()
+            .ok_or(DenseGridBuildError::CellCountOverflow)?;
+        if cells.len() != expected {
+            return Err(DenseGridBuildError::CellCountMismatch {
+                expected,
+                actual: cells.len(),
+            });
+        }
+        Ok(Self { size, cells })
+    }
+
+    /// Builds a dense grid with a fallible reservation before invoking `f`.
+    ///
+    /// It does not catch panics in user callbacks or guarantee availability of
+    /// physical memory on systems with overcommit.
+    pub fn try_from_fn<F>(size: GridSize2, mut f: F) -> Result<Self, DenseGridBuildError>
+    where
+        F: FnMut(GridCoord2) -> T,
+    {
+        if !size.fits_i32_coords() {
+            return Err(DenseGridBuildError::CoordinateDimensionsOutOfRange);
+        }
+        let count = size
+            .checked_area()
+            .ok_or(DenseGridBuildError::CellCountOverflow)?;
+        let mut cells = Vec::new();
+        cells
+            .try_reserve_exact(count)
+            .map_err(|_| DenseGridBuildError::AllocationFailed)?;
+
+        for y in 0..size.height {
+            for x in 0..size.width {
+                cells.push(f(GridCoord2::new(x as i32, y as i32)));
+            }
+        }
+
+        Ok(Self { size, cells })
+    }
+
     pub fn from_fn<F>(size: GridSize2, mut f: F) -> Self
     where
         F: FnMut(GridCoord2) -> T,
@@ -754,5 +811,41 @@ mod tests {
                 .find(|(coord, _)| *coord == GridCoord2::new(-1, -1)),
             Some((GridCoord2::new(-1, -1), &9))
         );
+    }
+}
+
+#[cfg(test)]
+mod fallible_dense_construction_tests {
+    use super::*;
+
+    #[test]
+    fn checked_construction_preserves_row_major_data() {
+        let size = GridSize2::new(3, 2);
+        let grid = DenseGrid2D::try_from_fn(size, |coord| coord.x + 10 * coord.y).unwrap();
+        assert_eq!(grid.cells(), &[0, 1, 2, 10, 11, 12]);
+        let rebuilt = DenseGrid2D::try_from_vec(size, grid.cells().to_vec()).unwrap();
+        assert_eq!(rebuilt, grid);
+    }
+
+    #[test]
+    fn checked_construction_rejects_invalid_shape() {
+        assert_eq!(
+            DenseGrid2D::<u8>::try_from_vec(GridSize2::new(2, 2), vec![1]),
+            Err(DenseGridBuildError::CellCountMismatch {
+                expected: 4,
+                actual: 1
+            })
+        );
+        assert_eq!(
+            DenseGrid2D::<u8>::try_from_fn(GridSize2::new(i32::MAX as usize + 1, 1), |_| 0),
+            Err(DenseGridBuildError::CoordinateDimensionsOutOfRange)
+        );
+        assert!(matches!(
+            DenseGrid2D::<u64>::try_from_fn(
+                GridSize2::new(i32::MAX as usize, i32::MAX as usize),
+                |_| 0
+            ),
+            Err(DenseGridBuildError::AllocationFailed | DenseGridBuildError::CellCountOverflow)
+        ));
     }
 }

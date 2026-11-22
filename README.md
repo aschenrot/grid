@@ -40,4 +40,4 @@ cargo run --locked -p cli_dual_grid_demo -- --seed 123
 cargo metadata --locked --no-deps
 ```
 
-The existing `fill_with_noise` and `cellular_automata_step` algorithms remain intact; independent scalar sampling and configurable CA are being specified in [Grid #2](https://github.com/aschenrot/grid/issues/2). Graph nodes, typed ports and execution remain the responsibility of consuming applications/platforms such as Riesel, not Grid core.
+The existing `fill_with_noise` and `cellular_automata_step` functions remain unchanged. Proposed bounded sampling, explicit scalar thresholding, and configurable protected-write CA are documented in [the generation boundary](docs/generation-boundary.md) and tracked in [Grid #2](https://github.com/aschenrot/grid/issues/2). Graph nodes, typed ports, execution and GUI integration are responsibilities of consuming applications/platforms such as Riesel, not Grid core.

@@ -1,3 +1,5 @@
+pub mod bounded;
+
 use fastnoise_lite::{FastNoiseLite, FractalType, NoiseType};
 use grid_math::{ALL_NEIGHBORS_2D, GridCoord2, GridSize2};
 use grid_storage::DenseGrid2D;
