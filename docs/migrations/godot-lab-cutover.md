@@ -1,36 +1,21 @@
-# Godot / World Lab removal — breaking Grid cutover
+# Godot and World Lab API Removal
 
-**State:** owner-authorized breaking change in [Grid #4](https://github.com/aschenrot/grid/issues/4). This documents deliberately removed public APIs; it is **not** a claim that external Godot/World Lab consumers have been migrated or independently tested.
+[Grid PR #5](https://github.com/aschenrot/grid/pull/5) removed the Godot adapter and World Lab-specific generation APIs from `main` on 22 November 2026. The change is source-incompatible for applications importing them.
 
-## Removed from the Grid workspace
+## Removed API
 
-- Cargo package `godot_grid` and its GDExtension-facing classes, export symbol `gdext_rust_init`, Godot mapper, tile asset catalog and other `adapters/godot_grid` functionality.
-- Product/lab-specific `grid_generation` exports: `LabChunkCoord`, `LabGenerationSettings`, `LabTerrainCell`, `LabDebugMarker`, `LabGeneratedChunk`, `LabFormationLayer`, `LabFormationBatch`, `CollisionMergeBox`, `generate_lab_chunk`, `generate_lab_topology_layers`, `build_owned_halo_formation_layer`, `build_owned_halo_formation_layers`, `merge_collision_cells`, and `LAYER_GROUND`, `LAYER_SOLID`, `LAYER_WATER`, `LAYER_CLIFF`.
-- The unused Godot dependency and its transitive lockfile packages.
+- `godot_grid` Cargo package, GDExtension entry point `gdext_rust_init`, `GodotVisualTileResource`, `GodotGridTopologyMapper`, `GodotGridAdapter` and asset mapping.
+- `grid_generation` types: `LabChunkCoord`, `LabGenerationSettings`, `LabTerrainCell`, `LabDebugMarker`, `LabGeneratedChunk`, `LabFormationLayer`, `LabFormationBatch`, `CollisionMergeBox`.
+- Generation functions `generate_lab_chunk`, `generate_lab_topology_layers`, `build_owned_halo_formation_layer`, `build_owned_halo_formation_layers`, `merge_collision_cells`; constants `LAYER_GROUND`, `LAYER_SOLID`, `LAYER_WATER`, `LAYER_CLIFF`.
 
-**Unchanged:** `grid_math`, `grid_storage`, `tile_topology`, `grid_prelude`, the CLI demo and the legacy neutral `grid_generation::{NoiseFillSettings, SeededGridGenerator, fill_with_noise, cellular_automata_step, test_pattern}` functions and semantics.
+Unchanged neutral APIs include `NoiseFillSettings`, `SeededGridGenerator`, `fill_with_noise`, `cellular_automata_step`, `test_pattern`, grid storage, math and tile topology.
 
-## Downstream migration
+## Migrating a consumer
 
-Existing integrations using the above removed types/functions will **not compile** on the new Grid revision. Choose one:
+For an existing Godot application, either temporarily pin Grid to `dd05a2c857c9d0410cb375dbebc108bdaa11dc5c` or move the old Godot and lab behavior into an independent application/adapter. The historical revision is no longer maintained. Source remains accessible in Git history.
 
-1. **Temporary pin:** keep using `dd05a2c857c9d0410cb375dbebc108bdaa11dc5c` (the last pre-cutover integration baseline used for this change) until the downstream owner is ready. The historical revision is not maintained as a release.
-2. **Independent adapter:** move any genuinely required Godot host/World Lab product behavior into its own application/adapter repository. Import the neutral Grid math, storage and topology crates as needed, and independently verify the old generated-output and presentation requirements; do not presume bit-identical reproduction of removed lab-generation algorithms.
-3. **New Riesel consumer:** the Riesel Grid Workbench is a *different* application and is not a drop-in migration target for Godot APIs. Grid supplies neutral algorithms, Riesel owns operation graphs/capabilities/execution, and RunenRender is an optional visualization owner.
+Neutral Grid APIs support storage and topology in a replacement application, but **do not reproduce the removed lab generator automatically**. Validate any required generated-world behavior separately.
 
-The retired source remains recoverable through **Git history**; no redundant backup or long-term compatibility facade is maintained in this repository.
+## Verification
 
-## Release verification
-
-On the exact intended PR/merge candidate:
-
-```sh
-cargo fmt --check
-cargo test --locked
-cargo test --locked -p grid_generation
-cargo test --locked -p tile_topology
-cargo run --locked -p cli_dual_grid_demo -- --seed 123
-cargo metadata --locked --no-deps
-```
-
-Review that the active Cargo dependency graph contains no Godot package, and that no active neutral library source references removed `Lab*` symbols. An Actions job failing **before its first test step** is not Rust evidence; preserve the candidate unmerged until a genuinely reviewable test run is available or the delivery process formally handles that exception.
+The cutover passed [Linux CI](https://github.com/aschenrot/grid/actions/runs/45037826842) at the reviewed revision, including formatting, tests and the seeded CLI demo. Consult the merged PR for the complete diff.

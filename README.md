@@ -1,20 +1,20 @@
 # Grid
 
-Reusable, **engine-neutral** grid storage, dual-grid topology, and optional procedural generation.
+Rust libraries for grid coordinates and storage, 2D dual-grid tile topology, and optional procedural generation. The core has no game-engine or renderer dependencies.
 
-## Workspace
+## Crates
 
-The default Cargo workspace builds only:
-- `crates/grid_math`
-- `crates/grid_storage`
-- `crates/tile_topology`
-- `crates/grid_prelude`
+| Crate | Purpose |
+| --- | --- |
+| `grid_math` | 2D/3D coordinates, sizes, bounds and indexing |
+| `grid_storage` | Dense, sparse and chunked storage; local-grid access traits |
+| `tile_topology` | Four-bit dual-grid masks, tile descriptors and invalidation |
+| `grid_prelude` | Re-exports of the three core crates |
+| `grid_generation` | Optional noise fill, seeded generation and cellular automata |
 
-The optional `crates/grid_generation` and `demos/cli_dual_grid_demo` are separate workspace members. No game engine, ECS, UI, renderer, or adapter dependency is required by the core.
+The CLI demo and generation crate are workspace members but are not part of the default test set.
 
-**Breaking change:** the Godot adapter and lab-specific chunk generator were removed in the owner-authorized [Grid #4 clean cutover](https://github.com/aschenrot/grid/issues/4). Existing external Godot integrations are **not automatically migrated**. See [migration notes](docs/migrations/godot-lab-cutover.md).
-
-## Core usage
+## Example
 
 ```rust
 use grid_prelude::*;
@@ -30,14 +30,14 @@ let tile = visual
 assert_eq!(tile.descriptor().mask().bits(), 0b1000);
 ```
 
-## Commands
+## Verify
 
 ```sh
 cargo test --locked
 cargo test --locked -p grid_generation
-cargo test --locked -p tile_topology
 cargo run --locked -p cli_dual_grid_demo -- --seed 123
-cargo metadata --locked --no-deps
 ```
 
-The existing `fill_with_noise` and `cellular_automata_step` algorithms remain intact; independent scalar sampling and configurable CA are being specified in [Grid #2](https://github.com/aschenrot/grid/issues/2). Graph nodes, typed ports and execution remain the responsibility of consuming applications/platforms such as Riesel, not Grid core.
+See [usage](docs/usage.md), [dual-grid model](docs/dual-grid-model.md), [architecture](docs/architecture.md), and [roadmap](docs/roadmap.md).
+
+The former Godot adapter was removed. Existing consumers can use the [migration guide](docs/migrations/godot-lab-cutover.md).
