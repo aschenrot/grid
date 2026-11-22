@@ -1,3 +1,5 @@
+> **Historical planning snapshot, not the active delivery contract.** The owner-authorized [Grid #4 breaking cutover](https://github.com/aschenrot/grid/issues/4) removes the previous Godot adapter and World Lab APIs. The historical phased Godot/Bevy instructions below are retained only for provenance and MUST NOT be executed as current tasks. Use the [current architecture](architecture.md), [generation boundary](generation-boundary.md), [cutover migration](migrations/godot-lab-cutover.md), and [Grid #2 scalar/CA specification](https://github.com/aschenrot/grid/issues/2) for active work.
+
 # Grid Workspace Roadmap
 
 This roadmap makes `/Users/joshua/Projekte/grid` the source of truth for the
