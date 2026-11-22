@@ -845,7 +845,7 @@ mod fallible_dense_construction_tests {
             Err(DenseGridBuildError::CoordinateDimensionsOutOfRange)
         );
         assert_eq!(
-            DenseGrid2D::<u8>::try_from_fn(GridSize2::new(i32::MAX as usize, i32::MAX as usize), |_| 0),
+            DenseGrid2D::<u64>::try_from_fn(GridSize2::new(i32::MAX as usize, i32::MAX as usize), |_| 0),
             Err(DenseGridBuildError::AllocationFailed)
         );
     }
