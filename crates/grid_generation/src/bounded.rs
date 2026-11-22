@@ -22,6 +22,7 @@ pub enum GenerationError {
     NonFiniteSample,
     InvalidRule,
     ProtectionSizeMismatch,
+    MissingInputCell,
 }
 
 impl From<DenseGridBuildError> for GenerationError {
@@ -229,6 +230,17 @@ where
     checked_output::<bool>(size, max_output_bytes)?;
     if protected.is_some_and(|mask| mask.size() != size) {
         return Err(GenerationError::ProtectionSizeMismatch);
+    }
+
+    // GridRead returns Option even for coordinates inside its declared extent.
+    // Reject incomplete source windows instead of panicking in a sampling
+    // callback or silently treating a hole as an out-of-range cell.
+    for y in 0..size.height {
+        for x in 0..size.width {
+            if input.get(GridCoord2::new(x as i32, y as i32)).is_none() {
+                return Err(GenerationError::MissingInputCell);
+            }
+        }
     }
 
     let (offsets, max_neighbors): (&[GridCoord2], u8) = match rules.neighborhood {
