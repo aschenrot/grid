@@ -8,7 +8,6 @@ grid_math -> grid_storage -> tile_topology -> grid_prelude
                   |              |
              grid_generation ----+
 
-godot_grid -> grid_math + grid_storage + tile_topology + godot
 cli_dual_grid_demo -> grid_prelude + grid_generation
 ```
 
@@ -17,8 +16,9 @@ cli_dual_grid_demo -> grid_prelude + grid_generation
 `grid_generation` is a consumer crate and is not part of the core dependency
 chain. `grid_prelude` does not re-export generation so normal core users do not
 pull procedural dependencies by accident. See `docs/generation-boundary.md` for
-the current extraction boundary; the Godot World Lab generator is not moved into
-this crate until its reusable contract is stable.
+the current neutral-generation boundary. The former Godot adapter and World Lab
+API were explicitly removed in [#4](https://github.com/aschenrot/grid/issues/4);
+see `docs/migrations/godot-lab-cutover.md`.
 
 ## Kept, Renamed, Moved, Discarded
 
@@ -55,5 +55,6 @@ Default workspace members are core crates only:
 - `crates/tile_topology`
 - `crates/grid_prelude`
 
-Adapters, demos, and generation are workspace members but stay outside the
-default validation surface unless explicitly tested.
+The CLI demo and generation are workspace members but stay outside the default
+validation surface unless explicitly tested. Engine adapters, if needed, are
+separate downstream integrations.
