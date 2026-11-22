@@ -9,7 +9,7 @@ Grid produces coordinates, grid values, tile masks, descriptors and changed-corn
 - `tile_topology`: `LogicCellCoord`, `VisualCornerCoord`, `TileMask4`, `VisualTileDescriptor`, `VisualTileKind`, `VisualTileRotation`
 - `tile_topology::form_visual_tiles` and `affected_visual_corners_for_logic_cell`
 
-The standard tile rule defines the mask, classification and clockwise quarter-turn rotation; downstream mapping does not recompute those results. Custom rules can construct their own descriptors.
+Topology formation computes the mask. The standard tile rule then classifies it and assigns a clockwise quarter-turn rotation. Adapters consume these results; custom rules may construct other descriptors.
 
 Core coordinates use a top-left origin with positive X right and Y down. Rendering coordinates, asset keys, materials and resource lifetimes are adapter responsibilities.
 
