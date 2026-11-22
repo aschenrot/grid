@@ -24,6 +24,7 @@ jobs:
       - name: Install Rust 1.100.0
         run: |
           rustup toolchain install 1.100.0 --profile minimal
+          rustup component add rustfmt --toolchain 1.100.0
           rustup default 1.100.0
       - name: Verify pinned workspace and no Godot package
         run: |
